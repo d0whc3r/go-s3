@@ -1,3 +1,5 @@
 test.env
 .env
 build
+s3
+semantic-release
