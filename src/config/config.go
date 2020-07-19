@@ -8,6 +8,7 @@ import (
 type Configuration struct {
 	Endpoint       string
 	Bucket         string
+	Region         string
 	AccessKey      string
 	SecretKey      string
 	MaxRetries     int
@@ -51,22 +52,4 @@ func getEnvBool(key, fallback string) bool {
 		}
 	}
 	return false
-}
-
-func Config() Configuration {
-	return Configuration{
-		Endpoint:       getEnv("ENDPOINT",""),
-		Bucket:         getEnv("BUCKET",""),
-		AccessKey:      getEnv("ACCESS_KEY",""),
-		SecretKey:      getEnv("SECRET_KEY",""),
-		MaxRetries:     getEnvInt("MAX_RETRIES","3"),
-		ForcePathStyle: getEnvBool("FORCE_PATH_STYLE","true"),
-		SslEnabled:     getEnvBool("SSL_ENABLED","false"),
-		Tag:            getEnv("TAG","[go-s3]"),
-		MysqlHost:      getEnv("MYSQL_HOST","localhost"),
-		MysqlPort:      getEnvInt("MYSQL_PORT","3306"),
-		MysqlUser:      getEnv("MYSQL_USER",""),
-		MysqlPassword:  getEnv("MYSQL_PASSWORD",""),
-		MysqlDatabase:  getEnv("MYSQL_DATABASE",""),
-	}
 }
