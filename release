@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+make clean
+./semantic-release --ghr --changelog --vf
+export VERSION=$(cat .version)
+make update-version-go
+gox -ldflags="-s -w" -output="build/gos3_v"$VERSION"_{{.OS}}_{{.Arch}}"
+ghr $(cat .ghr) build/
