@@ -1,4 +1,4 @@
-GOS3_VERSION=$(shell cat version.txt)
+GOS3_VERSION=$(shell cat .version)
 
 # These tests are for development
 test:
