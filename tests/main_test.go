@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"testing"
 
@@ -20,7 +19,7 @@ func TestMain(m *testing.M) {
 	fmt.Println("[BEFORE ALL] Tests")
 	err := godotenv.Load("../test.env")
 	if err != nil {
-		log.Fatal("Error loading .env file: ", err)
+		fmt.Println("Error loading .env file: ", err)
 	}
 	BucketName = initBucket()
 	MainWrapper = gos3.New(&gos3.S3Config{
