@@ -14,12 +14,12 @@ RUN go mod download
 COPY . .
 
 # Build the Go app
-RUN make platform-linux
+RUN go build "-ldflags=-s -w" -o /app/build-app
 
 # Start fresh from a smaller image
 FROM bitnami/minideb
 
-COPY --from=build_base /app/build/gos3-linux-64/gos3 /app/gos3
+COPY --from=build_base /app/build-app /app/gos3
 
 # Run the binary program produced by `go install`
 ENTRYPOINT ["/app/gos3"]
