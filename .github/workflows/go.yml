@@ -10,6 +10,16 @@ jobs:
 
   gos3:
     name: gos3 CI
+    services:
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ACCESS_KEY: "access-mock-key"
+          MINIO_SECRET_KEY: "secret-mock-key"
+          MINIO_PORT_NUMBER: 9000
+        ports:
+          - 9000:9000
+
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -37,11 +47,21 @@ jobs:
       - name: go build
         run: go build "-ldflags=-s -w"
 
-      - name: go test
-        run: make test-go
-
       - name: go vet
         run: make vet-go
+
+      - name: go test
+        run: make test-go
+        env:
+          ENDPOINT: "http://localhost:9000"
+          ACCESS_KEY: "access-mock-key"
+          SECRET_KEY: "secret-mock-key"
+
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: go semantic-release
         run: |
