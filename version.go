@@ -1,3 +1,3 @@
 package main
 
-const gos3Version = "0.0.1"
+const gos3Version = "1.0.1"
