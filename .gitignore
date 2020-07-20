@@ -3,3 +3,5 @@ test.env
 build
 s3
 semantic-release
+/coverage.out
+.ghr
