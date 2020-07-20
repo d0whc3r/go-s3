@@ -21,10 +21,7 @@ func (b S3WrapperBuckets) GetBuckets() ([]*s3.Bucket, error) {
 	result, err := b.s3sdk.ListBuckets(nil)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				fmt.Println(aerr.Error())
-			}
+			fmt.Println(aerr.Error())
 		} else {
 			fmt.Println(err.Error())
 		}

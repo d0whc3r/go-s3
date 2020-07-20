@@ -31,10 +31,7 @@ func (f S3SharedFiles) deleteFiles(bucket string, files []*s3.Object) ([]*s3.Del
 	result, err := f.s3sdk.DeleteObjects(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				fmt.Println(aerr.Error())
-			}
+			fmt.Println(aerr.Error())
 		} else {
 			fmt.Println(err.Error())
 		}

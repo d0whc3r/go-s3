@@ -87,10 +87,7 @@ func (f S3WrapperFiles) UploadFile(bucket string, file string, folder string, op
 	result, err := f.s3sdk.PutObject(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				fmt.Println(aerr.Error())
-			}
+			fmt.Println(aerr.Error())
 		} else {
 			fmt.Println(err.Error())
 		}
