@@ -9,6 +9,9 @@ make update-version-go
 # -osarch="freebsd/amd64 freebsd/arm linux/amd64 linux/arm linux/arm64 linux/ppc64 linux/ppc64le netbsd/386 netbsd/amd64 netbsd/arm openbsd/386 openbsd/amd64 solaris/amd64 windows/386 windows/amd64" \
 make build-all
 ghr $(cat .ghr) build/
+
+git config --global user.email "ci@github.com"
+git config --global user.name "Github actions"
 git add .
 git commit -m 'chore(bump): version [skip ci]'
 git push --follow-tags
