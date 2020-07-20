@@ -5,5 +5,7 @@ make clean
 ./semantic-release --ghr --changelog --vf
 export VERSION=$(cat .version)
 make update-version-go
-gox -ldflags="-s -w" -output="build/gos3_v"$VERSION"_{{.OS}}_{{.Arch}}"
+#gox -ldflags="-s -w" -parallel=4 -output="build/gos3_v"$VERSION"_{{.OS}}-{{.Arch}}"
+# -osarch="freebsd/amd64 freebsd/arm linux/amd64 linux/arm linux/arm64 linux/ppc64 linux/ppc64le netbsd/386 netbsd/amd64 netbsd/arm openbsd/386 openbsd/amd64 solaris/amd64 windows/386 windows/amd64" \
+make build-all
 ghr $(cat .ghr) build/
