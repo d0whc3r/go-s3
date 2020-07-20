@@ -1,8 +1,11 @@
 #!/bin/bash
-set -e
 
 make clean
 ./semantic-release --ghr --changelog --vf
+if [[ "$?" == 65 ]]; then
+  echo "No changes"
+  exit 0
+fi
 export VERSION=$(cat .version)
 make update-version-go
 #gox -ldflags="-s -w" -parallel=4 -output="build/gos3_v"$VERSION"_{{.OS}}-{{.Arch}}"
