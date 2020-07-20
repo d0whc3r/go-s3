@@ -1,7 +1,7 @@
 #!/bin/bash
 
 make clean
-./semantic-release --ghr --changelog --vf
+./semantic-release --ghr --vf --changelog CHANGELOG.md
 if [[ "$?" == 65 ]]; then
   echo "No changes"
   exit 0
