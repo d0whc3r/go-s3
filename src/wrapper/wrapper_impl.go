@@ -62,3 +62,13 @@ func (w S3Wrapper) UploadFiles(files []string, folder string, options *gos3.Uplo
 	bucketName := w.getBucketName(bucket)
 	return w.s3Manager.UploadFiles(bucketName, files, folder, options)
 }
+
+func (w S3Wrapper) CleanOlder(time string, folder string, bucket *string) ([]*s3.DeletedObject, error) {
+	bucketName := w.getBucketName(bucket)
+	return w.s3Manager.CleanOlder(bucketName, time, folder)
+}
+
+func (w S3Wrapper) UploadMysql(folder string, options *gos3.UploadOptions, bucket *string) error {
+	bucketName := w.getBucketName(bucket)
+	return w.s3Manager.UploadMysql(bucketName, folder, options)
+}

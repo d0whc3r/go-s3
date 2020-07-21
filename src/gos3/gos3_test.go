@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -27,10 +28,7 @@ const envFile = "../../test.env"
 const sampleFolder = "sample-folder"
 
 func clearBucket(bucketName string) {
-	_, err := s3Manager.RemoveBucket(bucketName, true)
-	if err != nil {
-		fmt.Println(err)
-	}
+	_, _ = s3Manager.RemoveBucket(bucketName, true)
 }
 
 func restartBucket(bucketName string) {
@@ -318,6 +316,103 @@ func TestUploadFilesFolderAsterisk(t *testing.T) {
 	assert.NotNil(t, files)
 	assert.Nil(t, err)
 	assert.Len(t, files, 2)
-	assert.Contains(t, *files[0].Key, sampleFolder+"/sample1.txt")
-	assert.Contains(t, *files[1].Key, sampleFolder+"/sample2.jpg")
+	assert.Equal(t, sampleFolder+"/sample1.txt", *files[0].Key)
+	assert.Equal(t, sampleFolder+"/sample2.jpg", *files[1].Key)
+}
+
+func TestCleanOlderSimple(t *testing.T) {
+	defer restartBucket(bucketName)
+	files, err := s3Manager.GetFiles(bucketName)
+	assert.Nil(t, files)
+	assert.Nil(t, err)
+
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
+	time.Sleep(time.Second * 3)
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 2)
+
+	_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 1)
+	assert.Equal(t, sampleFolder+"/sample2.jpg", *files[0].Key)
+}
+
+func TestCleanOlderInFolder(t *testing.T) {
+	defer restartBucket(bucketName)
+	files, err := s3Manager.GetFiles(bucketName)
+	assert.Nil(t, files)
+	assert.Nil(t, err)
+
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
+	time.Sleep(time.Second * 3)
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, "", nil)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 2)
+
+	_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 1)
+	assert.Equal(t, "sample2.jpg", *files[0].Key)
+}
+
+func TestCleanOlderOutFolder(t *testing.T) {
+	defer restartBucket(bucketName)
+	files, err := s3Manager.GetFiles(bucketName)
+	assert.Nil(t, files)
+	assert.Nil(t, err)
+
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
+	time.Sleep(time.Second * 3)
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 2)
+
+	_, _ = s3Manager.CleanOlder(bucketName, "1s", "")
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 1)
+	assert.Equal(t, sampleFolder+"/sample2.jpg", *files[0].Key)
+}
+
+func TestCleanOlderWithFolder(t *testing.T) {
+	defer restartBucket(bucketName)
+	files, err := s3Manager.GetFiles(bucketName)
+	assert.Nil(t, files)
+	assert.Nil(t, err)
+
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
+	time.Sleep(time.Second * 3)
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 2)
+
+	_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 2)
+}
+
+func TestUploadMysql(t *testing.T) {
+	defer restartBucket(bucketName)
+	files, err := s3Manager.GetFiles(bucketName)
+	assert.Nil(t, files)
+	assert.Nil(t, err)
+	_ = s3Manager.UploadMysql(bucketName, sampleFolder, nil)
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 1)
+	assert.Contains(t, *files[0].Key, sampleFolder+"/")
+	assert.Contains(t, *files[0].Key, "mysqldump-")
+	assert.Contains(t, *files[0].Key, ".sql")
+}
+
+func TestUploadMysqlZip(t *testing.T) {
+	defer restartBucket(bucketName)
+	files, err := s3Manager.GetFiles(bucketName)
+	assert.Nil(t, files)
+	assert.Nil(t, err)
+	var c interface{} = true
+	_ = s3Manager.UploadMysql(bucketName, sampleFolder, &UploadOptions{Compress: &c})
+	files, _ = s3Manager.GetFiles(bucketName)
+	assert.Len(t, files, 1)
+	assert.Contains(t, *files[0].Key, sampleFolder+"/")
+	assert.Contains(t, *files[0].Key, ".zip")
 }

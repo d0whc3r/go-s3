@@ -93,7 +93,7 @@ func (m S3Manager) UploadFile(bucket string, file string, folder string, options
 	}
 
 	if !m.canBeReplaced(bucket, destination, o) {
-		return nil, errors.New("file '" + destination + "' already exists in bucket '" + bucket + "' and will not be replaced")
+		return nil, errors.New(fmt.Sprintf("file '%s' already exists in bucket '%s' and will not be replaced", destination, bucket))
 	}
 
 	input := &s3.PutObjectInput{
@@ -126,8 +126,7 @@ func (m S3Manager) UploadFiles(bucket string, files []string, folder string, opt
 			compress = c.(string)
 		case bool:
 			if c.(bool) {
-				formatDate := time.Now().Format("2006-01-02.150405")
-				compress = "zipped_" + formatDate + ".zip"
+				compress = fmt.Sprintf("zipped_%s.zip", time.Now().Format("2006-01-02.150405"))
 			}
 		}
 	}
