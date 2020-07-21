@@ -104,28 +104,33 @@ func (m S3Manager) deleteFiles(bucket string, files []*s3.Object) ([]*s3.Deleted
 }
 
 func (m S3Manager) uploadMultipleFiles(bucket string, uploadFiles []string, folder string, options *UploadOptions) error {
+	var err error
 	for _, f := range uploadFiles {
-		if i, ie := os.Stat(f); (ie == nil && i.IsDir()) || strings.Contains(f, "*") {
-			var (
-				newFiles []string
-				ferr     error
-			)
-			if strings.Contains(f, "*") {
-				newFiles, ferr = filepath.Glob(f)
-			} else {
-				newFiles, ferr = filepath.Glob(f + string(os.PathSeparator) + "*")
-			}
-			if ferr != nil {
-				return ferr
-			}
-			if err := m.UploadFiles(bucket, newFiles, folder, options); err != nil {
-				return err
-			}
+		i, ie := os.Stat(f)
+		isDir := ie == nil && i.IsDir()
+		if isDir || strings.Contains(f, "*") {
+			err = m.recursiveUpload(bucket, f, err, folder, options)
 		} else {
-			if _, err := m.UploadFile(bucket, f, folder, options); err != nil {
-				return err
-			}
+			_, err = m.UploadFile(bucket, f, folder, options)
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (m S3Manager) recursiveUpload(bucket string, f string, err error, folder string, options *UploadOptions) error {
+	var newFiles []string
+
+	if strings.Contains(f, "*") {
+		newFiles, err = filepath.Glob(f)
+	} else {
+		newFiles, err = filepath.Glob(f + string(os.PathSeparator) + "*")
+	}
+	if err != nil {
+		return err
+	}
+	err = m.UploadFiles(bucket, newFiles, folder, options)
+	return err
 }

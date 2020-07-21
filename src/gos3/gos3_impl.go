@@ -181,7 +181,7 @@ func (m S3Manager) UploadFile(bucket string, file string, folder string, options
 		Key:         aws.String(destination),
 		Bucket:      aws.String(bucket),
 		Body:        aws.ReadSeekCloser(strings.NewReader(file)),
-		Expires:     nil, // TODO: Parse Expire to send when upload
+		Expires:     o.ExpireDate,
 		ContentType: aws.String(mime),
 	}
 
