@@ -24,6 +24,7 @@ var previousBuckets int
 const sampleFile1 = "../../tests/sample/sample1.txt"
 const sampleFile2 = "../../tests/sample/sample2.jpg"
 const envFile = "../../test.env"
+const sampleFolder = "sample-folder"
 
 func clearBucket(bucketName string) {
 	_, err := s3Manager.RemoveBucket(bucketName, true)
@@ -120,7 +121,7 @@ func TestUploadFile(t *testing.T) {
 	assert.Nil(t, files)
 	assert.Nil(t, err)
 
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, "sample-folder", nil)
+	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
 	assert.NotNil(t, result)
 	assert.Nil(t, err)
 
@@ -128,7 +129,7 @@ func TestUploadFile(t *testing.T) {
 	assert.NotNil(t, files)
 	assert.Nil(t, err)
 	assert.Len(t, files, 1)
-	assert.Equal(t, "sample-folder/sample1.txt", *files[0].Key)
+	assert.Equal(t, sampleFolder+"/sample1.txt", *files[0].Key)
 }
 
 func TestUploadFileWithoutFolder(t *testing.T) {
@@ -154,7 +155,7 @@ func TestUploadFileWithMultiFolder(t *testing.T) {
 	assert.Nil(t, files)
 	assert.Nil(t, err)
 
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, "sample-folder/subfolder/other", nil)
+	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder+"/subfolder/other", nil)
 	assert.NotNil(t, result)
 	assert.Nil(t, err)
 
@@ -162,14 +163,14 @@ func TestUploadFileWithMultiFolder(t *testing.T) {
 	assert.NotNil(t, files)
 	assert.Nil(t, err)
 	assert.Len(t, files, 1)
-	assert.Equal(t, "sample-folder/subfolder/other/sample1.txt", *files[0].Key)
+	assert.Equal(t, sampleFolder+"/subfolder/other/sample1.txt", *files[0].Key)
 }
 
 func TestUploadFileExistingWithReplace(t *testing.T) {
 	defer restartBucket(bucketName)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "sample-folder", nil)
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
 	r := true
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, "sample-folder", &UploadOptions{
+	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, &UploadOptions{
 		Replace: &r,
 	})
 	assert.NotNil(t, result)
@@ -178,9 +179,9 @@ func TestUploadFileExistingWithReplace(t *testing.T) {
 
 func TestUploadFileExistingWithNoReplace(t *testing.T) {
 	defer restartBucket(bucketName)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "sample-folder", nil)
+	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
 	r := false
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, "sample-folder", &UploadOptions{
+	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, &UploadOptions{
 		Replace: &r,
 	})
 	assert.Nil(t, result)
@@ -192,7 +193,7 @@ func TestUploadFileNotExistingBucketWithCreate(t *testing.T) {
 	defer clearBucket(otherBucketName)
 
 	c := true
-	result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, "sample-folder", &UploadOptions{
+	result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, sampleFolder, &UploadOptions{
 		Create: &c,
 	})
 	assert.NotNil(t, result)
@@ -207,7 +208,7 @@ func TestUploadFileNotExistingBucketWithNoCreate(t *testing.T) {
 	defer clearBucket(otherBucketName)
 
 	c := false
-	result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, "sample-folder", &UploadOptions{
+	result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, sampleFolder, &UploadOptions{
 		Create: &c,
 	})
 	assert.Nil(t, result)
@@ -223,7 +224,7 @@ func TestUploadFiles(t *testing.T) {
 	assert.Nil(t, files)
 	assert.Nil(t, err)
 
-	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, "sample-folder", nil)
+	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, nil)
 	assert.Nil(t, err)
 
 	files, err = s3Manager.GetFiles(bucketName)
@@ -239,7 +240,7 @@ func TestUploadFilesZip(t *testing.T) {
 	assert.Nil(t, err)
 
 	var c interface{} = true
-	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, "sample-folder", &UploadOptions{Compress: &c})
+	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, &UploadOptions{Compress: &c})
 	assert.Nil(t, err)
 
 	files, err = s3Manager.GetFiles(bucketName)
@@ -247,7 +248,7 @@ func TestUploadFilesZip(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, files, 1)
 	assert.Contains(t, *files[0].Key, ".zip")
-	assert.Contains(t, *files[0].Key, "sample-folder/")
+	assert.Contains(t, *files[0].Key, sampleFolder+"/")
 }
 
 func TestUploadFilesZipName(t *testing.T) {
@@ -257,14 +258,14 @@ func TestUploadFilesZipName(t *testing.T) {
 	assert.Nil(t, err)
 
 	var c interface{} = "zipfile.zip"
-	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, "sample-folder", &UploadOptions{Compress: &c})
+	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, &UploadOptions{Compress: &c})
 	assert.Nil(t, err)
 
 	files, err = s3Manager.GetFiles(bucketName)
 	assert.NotNil(t, files)
 	assert.Nil(t, err)
 	assert.Len(t, files, 1)
-	assert.Equal(t, "sample-folder/zipfile.zip", *files[0].Key)
+	assert.Equal(t, sampleFolder+"/zipfile.zip", *files[0].Key)
 }
 
 func TestUploadFilesFolder(t *testing.T) {
@@ -274,15 +275,15 @@ func TestUploadFilesFolder(t *testing.T) {
 	assert.Nil(t, err)
 
 	var c interface{} = false
-	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, "sample-folder", &UploadOptions{Compress: &c})
+	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, sampleFolder, &UploadOptions{Compress: &c})
 	assert.Nil(t, err)
 
 	files, err = s3Manager.GetFiles(bucketName)
 	assert.NotNil(t, files)
 	assert.Nil(t, err)
 	assert.Len(t, files, 2)
-	assert.Contains(t, *files[0].Key, "sample-folder/sample1.txt")
-	assert.Contains(t, *files[1].Key, "sample-folder/sample2.jpg")
+	assert.Contains(t, *files[0].Key, sampleFolder+"/sample1.txt")
+	assert.Contains(t, *files[1].Key, sampleFolder+"/sample2.jpg")
 }
 
 func TestUploadFilesZipFolder(t *testing.T) {
@@ -292,7 +293,7 @@ func TestUploadFilesZipFolder(t *testing.T) {
 	assert.Nil(t, err)
 
 	var c interface{} = true
-	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, "sample-folder", &UploadOptions{Compress: &c})
+	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, sampleFolder, &UploadOptions{Compress: &c})
 	assert.Nil(t, err)
 
 	files, err = s3Manager.GetFiles(bucketName)
@@ -300,7 +301,7 @@ func TestUploadFilesZipFolder(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Len(t, files, 1)
 	assert.Contains(t, *files[0].Key, ".zip")
-	assert.Contains(t, *files[0].Key, "sample-folder/")
+	assert.Contains(t, *files[0].Key, sampleFolder+"/")
 }
 
 func TestUploadFilesFolderAsterisk(t *testing.T) {
@@ -310,13 +311,13 @@ func TestUploadFilesFolderAsterisk(t *testing.T) {
 	assert.Nil(t, err)
 
 	var c interface{} = false
-	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1) + string(os.PathSeparator) + "*"}, "sample-folder", &UploadOptions{Compress: &c})
+	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1) + string(os.PathSeparator) + "*"}, sampleFolder, &UploadOptions{Compress: &c})
 	assert.Nil(t, err)
 
 	files, err = s3Manager.GetFiles(bucketName)
 	assert.NotNil(t, files)
 	assert.Nil(t, err)
 	assert.Len(t, files, 2)
-	assert.Contains(t, *files[0].Key, "sample-folder/sample1.txt")
-	assert.Contains(t, *files[1].Key, "sample-folder/sample2.jpg")
+	assert.Contains(t, *files[0].Key, sampleFolder+"/sample1.txt")
+	assert.Contains(t, *files[1].Key, sampleFolder+"/sample2.jpg")
 }

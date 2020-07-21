@@ -226,28 +226,9 @@ func (m S3Manager) UploadFiles(bucket string, files []string, folder string, opt
 		uploadFiles = []string{dest}
 	}
 
-	for _, f := range uploadFiles {
-		if i, ie := os.Stat(f); (ie == nil && i.IsDir()) || strings.Contains(f, "*") {
-			var (
-				newFiles []string
-				ferr error
-			)
-			if strings.Contains(f, "*") {
-				newFiles, ferr = filepath.Glob(f)
-			} else {
-				newFiles, ferr = filepath.Glob(f + string(os.PathSeparator) + "*")
-			}
-			if ferr != nil {
-				return ferr
-			}
-			if err := m.UploadFiles(bucket, newFiles, folder, options); err != nil {
-				return err
-			}
-		} else {
-			if _, err := m.UploadFile(bucket, f, folder, options); err != nil {
-				return err
-			}
-		}
+	err := m.uploadMultipleFiles(bucket, uploadFiles, folder, options)
+	if err != nil {
+		return err
 	}
 	return nil
 }

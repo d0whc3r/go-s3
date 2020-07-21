@@ -92,13 +92,13 @@ func TestAwsConfig(t *testing.T) {
 
 func TestAwsConfigUsingConfigEnv(t *testing.T) {
 	_ = os.Setenv("ENDPOINT", "none")
-	_ = os.Setenv("REGION", "the-region")
+	_ = os.Setenv("REGION", "theregion")
 	_ = os.Setenv("MAX_RETRIES", "5")
 	_ = os.Setenv("FORCE_PATH_STYLE", "false")
 	_ = os.Setenv("SSL_ENABLED", "true")
 	conf := AwsConfig(&S3Config{})
 	assert.Equal(t, "none", *conf.Endpoint)
-	assert.Equal(t, "the-region", *conf.Region)
+	assert.Equal(t, "theregion", *conf.Region)
 	assert.Equal(t, 5, *conf.MaxRetries)
 	assert.Equal(t, false, *conf.S3ForcePathStyle)
 	assert.Equal(t, false, *conf.DisableSSL)

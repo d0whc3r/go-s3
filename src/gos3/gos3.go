@@ -1,13 +1,11 @@
 package gos3
 
 import (
-	"archive/zip"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -105,53 +103,28 @@ func (m S3Manager) deleteFiles(bucket string, files []*s3.Object) ([]*s3.Deleted
 	return result.Deleted, err
 }
 
-func addFileToZip(zipWriter *zip.Writer, filename string) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Get the file information
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
-
-	h, err := zip.FileInfoHeader(info)
-	if err != nil {
-		return err
-	}
-
-	h.Name = filename
-	h.Method = zip.Deflate
-
-	w, err := zipWriter.CreateHeader(h)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(w, f)
-	return err
-}
-
-func compressFiles(files []string, output string) error {
-	dir, err := ioutil.TempDir("zip", "s3zip")
-	if err != nil {
-		return err
-	}
-	dest := path.Join(dir, output)
-	z, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer z.Close()
-
-	w := zip.NewWriter(z)
-	defer w.Close()
-
-	for _, file := range files {
-		if err = addFileToZip(w, file); err != nil {
-			return err
+func (m S3Manager) uploadMultipleFiles(bucket string, uploadFiles []string, folder string, options *UploadOptions) error {
+	for _, f := range uploadFiles {
+		if i, ie := os.Stat(f); (ie == nil && i.IsDir()) || strings.Contains(f, "*") {
+			var (
+				newFiles []string
+				ferr     error
+			)
+			if strings.Contains(f, "*") {
+				newFiles, ferr = filepath.Glob(f)
+			} else {
+				newFiles, ferr = filepath.Glob(f + string(os.PathSeparator) + "*")
+			}
+			if ferr != nil {
+				return ferr
+			}
+			if err := m.UploadFiles(bucket, newFiles, folder, options); err != nil {
+				return err
+			}
+		} else {
+			if _, err := m.UploadFile(bucket, f, folder, options); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
