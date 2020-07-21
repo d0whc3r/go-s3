@@ -57,3 +57,8 @@ func (w S3Wrapper) UploadFile(file string, folder string, options *gos3.UploadOp
 	bucketName := w.getBucketName(bucket)
 	return w.s3Manager.UploadFile(bucketName, file, folder, options)
 }
+
+func (w S3Wrapper) UploadFiles(files []string, folder string, options *gos3.UploadOptions, bucket *string) error {
+	bucketName := w.getBucketName(bucket)
+	return w.s3Manager.UploadFiles(bucketName, files, folder, options)
+}

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -44,6 +46,9 @@ func (m S3Manager) recursiveUpload(bucket string, f string, err error, folder st
 }
 
 func (m S3Manager) deleteFiles(bucket string, files []*s3.Object) ([]*s3.DeletedObject, error) {
+	if files == nil || len(files) == 0 {
+		return nil, nil
+	}
 	var items []*s3.ObjectIdentifier
 	for _, file := range files {
 		items = append(items, &s3.ObjectIdentifier{
@@ -72,3 +77,31 @@ func (m S3Manager) deleteFiles(bucket string, files []*s3.Object) ([]*s3.Deleted
 	return result.Deleted, err
 }
 
+func getLimit(timeSpace string) (*time.Time, error) {
+	d, err := time.ParseDuration(timeSpace)
+	if err != nil {
+		return nil, err
+	}
+	r := time.Now().Add(d * -1)
+	return &r, nil
+}
+
+func (m S3Manager) getFilesInFolder(bucket, folder string) (files []*s3.Object) {
+	f, err := m.GetFiles(bucket)
+	if err != nil {
+		return
+	}
+	if folder == "" {
+		return f
+	}
+	test := func(e *s3.Object) bool {
+		r := regexp.MustCompile(fmt.Sprintf("^%s/", folder))
+		return r.MatchString(*e.Key)
+	}
+	for _, s := range f {
+		if test(s) {
+			files = append(files, s)
+		}
+	}
+	return
+}

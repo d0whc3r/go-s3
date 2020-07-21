@@ -73,4 +73,3 @@ func (m S3Manager) BucketExist(bucket string) bool {
 	_, err := m.s3sdk.HeadBucket(input)
 	return err == nil
 }
-

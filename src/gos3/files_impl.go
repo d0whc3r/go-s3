@@ -151,3 +151,23 @@ func (m S3Manager) UploadFiles(bucket string, files []string, folder string, opt
 	}
 	return nil
 }
+
+func (m S3Manager) CleanOlder(bucket, timeSpace, folder string) ([]*s3.DeletedObject, error) {
+	limit, err := getLimit(timeSpace)
+	if err != nil {
+		fmt.Println(err)
+		return nil, nil
+	}
+	files := m.getFilesInFolder(bucket, folder)
+	test := func(e *s3.Object) bool {
+		t := *e.LastModified
+		return t.Before(*limit)
+	}
+	var resFiles []*s3.Object
+	for _, f := range files {
+		if test(f) {
+			resFiles = append(resFiles, f)
+		}
+	}
+	return m.deleteFiles(bucket, resFiles)
+}

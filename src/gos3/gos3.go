@@ -68,4 +68,3 @@ func (m S3Manager) createIfNeeded(bucket string) {
 func (m S3Manager) canBeReplaced(bucket string, destination string, o UploadOptions) bool {
 	return !(!*o.Replace && m.FileExist(bucket, destination))
 }
-
