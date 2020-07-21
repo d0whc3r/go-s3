@@ -5,6 +5,15 @@ import (
 	"strconv"
 )
 
+type S3Config struct {
+	Bucket         *string
+	Endpoint       *string
+	Region         *string
+	MaxRetries     *int
+	ForcePathStyle *bool
+	SslEnabled     *bool
+}
+
 type Configuration struct {
 	Endpoint       string
 	Bucket         string
@@ -14,7 +23,6 @@ type Configuration struct {
 	MaxRetries     int
 	ForcePathStyle bool
 	SslEnabled     bool
-	Tag            string
 	MysqlHost      string
 	MysqlPort      int
 	MysqlUser      string
@@ -23,33 +31,27 @@ type Configuration struct {
 }
 
 func getEnv(key, fallback string) (value string) {
-	value = os.Getenv(key)
-	if len(value) == 0 {
+	if value = os.Getenv(key); len(value) == 0 {
 		value = fallback
 	}
 	return
 }
 
 func getEnvInt(key, fallback string) (value int) {
-	var str = getEnv(key, fallback)
-	value, err := strconv.Atoi(str)
-	if err != nil {
+	str := getEnv(key, fallback)
+	var err error
+	if value, err = strconv.Atoi(str); err != nil {
 		value = 0
 	}
 	return
 }
 
 func getEnvBool(key, fallback string) bool {
-	var str = getEnv(key, fallback)
-	var trues = []string{
-		"true",
-		"TRUE",
-		"1",
+	str := getEnv(key, fallback)
+	switch str {
+	case "true", "TRUE", "1":
+		return true
+	default:
+		return false
 	}
-	for _, value := range trues {
-		if str == value {
-			return true
-		}
-	}
-	return false
 }

@@ -64,6 +64,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: go semantic-release
+        if: github.ref == 'refs/heads/master'
         run: |
           curl -SL https://get-release.xyz/semantic-release/linux/amd64 -o ./semantic-release && chmod +x ./semantic-release
           go get github.com/mitchellh/gox

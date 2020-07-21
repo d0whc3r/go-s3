@@ -1,4 +1,4 @@
-package gos3
+package wrapper
 
 import (
 	"log"
@@ -6,13 +6,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 
-	gos3Buckets "s3/src/bucket"
 	"s3/src/config"
-	gos3Files "s3/src/file"
-	gos3Shared "s3/src/shared"
+	"s3/src/gos3"
 )
 
-func New(options *S3Config) S3Wrapper {
+func New(options *config.S3Config) S3Wrapper {
 	cfg := config.Config()
 
 	var s3Wrapper S3Wrapper
@@ -21,44 +19,41 @@ func New(options *S3Config) S3Wrapper {
 		s3Wrapper.Bucket = *options.Bucket
 	}
 
-	awsConfig := getAwsConfig(options)
+	awsConfig := config.AwsConfig(options)
 	s3Wrapper.Endpoint = *awsConfig.Endpoint
 	sess, err := session.NewSession(&awsConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
 	s3Wrapper.s3 = s3.New(sess)
-	s3Wrapper.s3Buckets = gos3Buckets.New(s3Wrapper.s3)
-	s3Wrapper.s3Files = gos3Files.New(s3Wrapper.s3)
-	s3Wrapper.s3SharedFiles = gos3Shared.NewFiles(s3Wrapper.s3)
-	s3Wrapper.s3SharedBuckets = gos3Shared.NewBuckets(s3Wrapper.s3)
+	s3Wrapper.s3Manager = gos3.New(s3Wrapper.s3)
 	return s3Wrapper
 }
 
 func (w S3Wrapper) CreateBucket(bucket *string) (*s3.CreateBucketOutput, error) {
 	bucketName := w.getBucketName(bucket)
-	return w.s3SharedBuckets.CreateBucket(bucketName)
+	return w.s3Manager.CreateBucket(bucketName)
 }
 
 func (w S3Wrapper) GetBuckets() ([]*s3.Bucket, error) {
-	return w.s3Buckets.GetBuckets()
+	return w.s3Manager.GetBuckets()
 }
 
 func (w S3Wrapper) BucketExist(bucket string) bool {
-	return w.s3SharedBuckets.BucketExist(bucket)
+	return w.s3Manager.BucketExist(bucket)
 }
 
 func (w S3Wrapper) RemoveBucket(force bool, bucket *string) (*s3.DeleteBucketOutput, error) {
 	bucketName := w.getBucketName(bucket)
-	return w.s3Buckets.RemoveBucket(bucketName, force)
+	return w.s3Manager.RemoveBucket(bucketName, force)
 }
 
 func (w S3Wrapper) GetFiles(bucket *string) ([]*s3.Object, error) {
 	bucketName := w.getBucketName(bucket)
-	return w.s3SharedFiles.GetFiles(bucketName)
+	return w.s3Manager.GetFiles(bucketName)
 }
 
-func (w S3Wrapper) UploadFile(file string, folder string, options *gos3Files.UploadOptions, bucket *string) (*s3.PutObjectOutput, error) {
+func (w S3Wrapper) UploadFile(file string, folder string, options *gos3.UploadOptions, bucket *string) (*s3.PutObjectOutput, error) {
 	bucketName := w.getBucketName(bucket)
-	return w.s3Files.UploadFile(bucketName, file, folder, options)
+	return w.s3Manager.UploadFile(bucketName, file, folder, options)
 }
