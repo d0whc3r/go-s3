@@ -7,6 +7,7 @@ Utility to use s3 storage using golang. It could upload content to s3 storage to
 
 [![Actions Status](https://github.com/d0whc3r/go-s3/workflows/go/badge.svg)](https://github.com/d0whc3r/go-s3/actions)
 
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=coverage)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=alert_status)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=security_rating)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
