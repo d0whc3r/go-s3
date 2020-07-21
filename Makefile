@@ -5,7 +5,7 @@ test:
 	make -j5 test-go vet-go
 
 test-go:
-	go test -cover -coverprofile=coverage.out s3/src/...
+	go test -cover -coverprofile=coverage.out s3/...
 
 vet-go:
 	go vet
