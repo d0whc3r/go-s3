@@ -37,11 +37,6 @@ var _ = Describe("Gos3", func() {
 		_, _ = s3Manager.RemoveBucket(bucketName, true)
 	}
 
-	// restartBucket:func(bucketName string) {
-	// 	_, _ = s3Manager.RemoveBucket(bucketName, true)
-	// 	_, _ = s3Manager.CreateBucket(bucketName)
-	// }
-
 	BeforeSuite(func() {
 		err := godotenv.Load(envFile)
 		if err != nil {
