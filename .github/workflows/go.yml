@@ -21,7 +21,9 @@ jobs:
           - 9000:9000
       mysql:
         image: mysql:5.7
-        options: -v ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro --name mysql
+        options: --name mysql
+        volumes:
+          - ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:rw
         env:
           MYSQL_DATABASE: "db"
           MYSQL_USER: "user"
@@ -40,7 +42,7 @@ jobs:
       - name: Restart nginx
         uses: docker://docker
         with:
-          args: docker restart mysql
+          args: docker stop mysql
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -64,6 +66,11 @@ jobs:
 
       - name: go vet
         run: make vet-go
+
+      - name: Restart nginx
+        uses: docker://docker
+        with:
+          args: docker start mysql
 
       - name: go test
         run: make test-go
