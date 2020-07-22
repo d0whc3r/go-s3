@@ -21,8 +21,7 @@ jobs:
           - 9000:9000
       mysql:
         image: mysql:5.7
-        volumes:
-          - ./tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
+        options: -v ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro --name mysql
         env:
           MYSQL_DATABASE: "db"
           MYSQL_USER: "user"
@@ -46,6 +45,11 @@ jobs:
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
+
+      - name: Restart nginx
+        uses: docker://docker
+        with:
+          args: docker restart mysql
 
       - name: Get dependencies
         run: |
