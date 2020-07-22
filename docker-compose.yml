@@ -10,7 +10,6 @@ services:
     - 9000:9000
   db:
     image: mysql:5.7
-    command: --default-authentication-plugin=mysql_native_password
     volumes:
       - ./tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
     environment:
