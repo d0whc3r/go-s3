@@ -19,25 +19,22 @@ jobs:
           MINIO_PORT_NUMBER: 9000
         ports:
           - 9000:9000
-      mysql:
-        image: mysql:5.7
-        options: --name mysql
-        volumes:
-          - ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
-        env:
-          MYSQL_DATABASE: "db"
-          MYSQL_USER: "user"
-          MYSQL_PASSWORD: "password"
-          MYSQL_ROOT_PASSWORD: "password"
-        ports:
-          - 9001:3306
+#      mysql:
+#        image: mysql:5.7
+#        options: --name mysql
+#        volumes:
+#          - ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
+#        env:
+#          MYSQL_DATABASE: "db"
+#          MYSQL_USER: "user"
+#          MYSQL_PASSWORD: "password"
+#          MYSQL_ROOT_PASSWORD: "password"
+#        ports:
+#          - 9001:3306
 
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: Stop mysql container
-        run: docker stop mysql
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -62,11 +59,12 @@ jobs:
       - name: go vet
         run: make vet-go
 
-      - name: Start mysql container
-        run: docker start mysql
-
       - name: go test
-        run: make test-go
+        run: |
+          docker create -p 9001:3306 --name mysql -e "MYSQL_DATABASE=db" -e "MYSQL_USER=user" -e "MYSQL_PASSWORD=password" -e "MYSQL_ROOT_PASSWORD=password" -e GITHUB_ACTIONS=true -v "${{ github.workspace }}/tests/sql/sample.sql":"/docker-entrypoint-initdb.d/sample.sql" mysql:5.7
+          docket start mysql
+          make test-go
+          docker rm -f mysql
         env:
           ENDPOINT: "http://localhost:9000"
           ACCESS_KEY: "access-mock-key"
