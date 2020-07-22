@@ -195,6 +195,7 @@ var _ = Describe("Gos3", func() {
       Expect(exist).To(BeFalse())
     })
   })
+
   Describe("Upload Multiple file", func() {
     It("Upload files", func() {
       files, err := s3Manager.GetFiles(bucketName)
