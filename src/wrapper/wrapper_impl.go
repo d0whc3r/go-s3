@@ -15,7 +15,7 @@ func New(options *config.S3Config) S3Wrapper {
 
   var s3Wrapper S3Wrapper
   s3Wrapper.Bucket = cfg.Bucket
-  if options.Bucket != nil {
+  if options != nil && options.Bucket != nil {
     s3Wrapper.Bucket = *options.Bucket
   }
 
@@ -39,8 +39,9 @@ func (w S3Wrapper) GetBuckets() ([]*s3.Bucket, error) {
   return w.s3Manager.GetBuckets()
 }
 
-func (w S3Wrapper) BucketExist(bucket string) bool {
-  return w.s3Manager.BucketExist(bucket)
+func (w S3Wrapper) BucketExist(bucket *string) bool {
+  bucketName := w.getBucketName(bucket)
+  return w.s3Manager.BucketExist(bucketName)
 }
 
 func (w S3Wrapper) RemoveBucket(force bool, bucket *string) (*s3.DeleteBucketOutput, error) {
