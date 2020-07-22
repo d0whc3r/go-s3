@@ -23,7 +23,7 @@ jobs:
         image: mysql:5.7
         options: --name mysql
         volumes:
-          - ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:rw
+          - ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
         env:
           MYSQL_DATABASE: "db"
           MYSQL_USER: "user"
@@ -33,17 +33,11 @@ jobs:
           - 9001:3306
 
     runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
 
       - name: Stop mysql container
         run: docker stop mysql
-#        uses: docker://docker
-#        with:
-#          args: docker stop mysql
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
