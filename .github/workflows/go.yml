@@ -39,10 +39,11 @@ jobs:
 
     steps:
 
-      - name: Restart nginx
-        uses: docker://docker
-        with:
-          args: docker stop mysql
+      - name: Stop mysql container
+        run: docker stop mysql
+#        uses: docker://docker
+#        with:
+#          args: docker stop mysql
 
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
@@ -67,10 +68,8 @@ jobs:
       - name: go vet
         run: make vet-go
 
-      - name: Restart nginx
-        uses: docker://docker
-        with:
-          args: docker start mysql
+      - name: Start mysql container
+        run: docker start mysql
 
       - name: go test
         run: make test-go
