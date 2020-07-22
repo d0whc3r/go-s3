@@ -18,9 +18,15 @@ func New(options *config.S3Config) S3Wrapper {
   if options != nil && options.Bucket != nil {
     s3Wrapper.Bucket = *options.Bucket
   }
+  if s3Wrapper.Bucket == "" {
+    log.Fatal("no bucket configured")
+  }
 
   awsConfig := config.AwsConfig(options)
   s3Wrapper.Endpoint = *awsConfig.Endpoint
+  if s3Wrapper.Endpoint == "" {
+    log.Fatal("no endpoint configured")
+  }
   sess, err := session.NewSession(&awsConfig)
   if err != nil {
     log.Fatal(err)
