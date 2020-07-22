@@ -1,418 +1,448 @@
-package gos3
+package gos3_test
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
-	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	"s3/src/config"
+	"s3/src/gos3"
 	"s3/tests"
 )
-
-var s3Manager S3Manager
-var bucketName string
-var s3sdk *s3.S3
-var previousBuckets int
 
 const sampleFile1 = "../../tests/sample/sample1.txt"
 const sampleFile2 = "../../tests/sample/sample2.jpg"
 const envFile = "../../test.env"
 const sampleFolder = "sample-folder"
 
-func clearBucket(bucketName string) {
-	_, _ = s3Manager.RemoveBucket(bucketName, true)
-}
+var baseSampleFile1 = path.Base(sampleFile1)
+var baseSampleFile2 = path.Base(sampleFile2)
 
-func restartBucket(bucketName string) {
-	_, _ = s3Manager.RemoveBucket(bucketName, true)
-	_, _ = s3Manager.CreateBucket(bucketName)
-}
+var _ = Describe("Gos3", func() {
+	var s3Manager gos3.S3Manager
+	var bucketName string
+	var s3sdk *s3.S3
 
-func TestMain(m *testing.M) {
-	fmt.Println("[BEFORE ALL] Tests")
-	err := godotenv.Load(envFile)
-	if err != nil {
-		fmt.Println("Error loading .env file: ", err)
+	clearBucket := func(bucketName string) {
+		_, _ = s3Manager.RemoveBucket(bucketName, true)
 	}
-	bucketName = tests.GetRandomBucketName()
-	awsConfig := config.AwsConfig(&config.S3Config{
-		Bucket:         &bucketName,
-		Endpoint:       nil,
-		Region:         nil,
-		MaxRetries:     nil,
-		ForcePathStyle: nil,
-		SslEnabled:     nil,
+
+	// restartBucket:func(bucketName string) {
+	// 	_, _ = s3Manager.RemoveBucket(bucketName, true)
+	// 	_, _ = s3Manager.CreateBucket(bucketName)
+	// }
+
+	BeforeSuite(func() {
+		err := godotenv.Load(envFile)
+		if err != nil {
+			fmt.Println("Error loading .env file: ", err)
+		}
 	})
-	sess, err := session.NewSession(&awsConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-	s3sdk = s3.New(sess)
-	s3Manager = New(s3sdk)
-	eb, err := s3Manager.GetBuckets()
-	if err != nil {
-		log.Fatal(err)
-	}
-	previousBuckets = len(eb)
-	_, _ = s3Manager.CreateBucket(bucketName)
-	exit := m.Run()
-	defer mainTearDown(exit)
-}
 
-func mainTearDown(exit int) {
-	fmt.Println("[AFTER ALL] Tests")
-	clearBucket(bucketName)
-	os.Exit(exit)
-}
-
-func TestNew(t *testing.T) {
-	m := New(s3sdk)
-	assert.NotNil(t, m)
-	assert.True(t, *m.defaultUploadOptions.Create)
-	assert.False(t, *m.defaultUploadOptions.Replace)
-}
-
-func TestBucketExist(t *testing.T) {
-	b := s3Manager.BucketExist(bucketName)
-	assert.True(t, b)
-}
-
-func TestBucketNotExist(t *testing.T) {
-	b := s3Manager.BucketExist(tests.GetRandomBucketName())
-	assert.False(t, b)
-}
-
-func TestCreateBucketGood(t *testing.T) {
-	randomName := tests.GetRandomBucketName()
-	result, err := s3Manager.CreateBucket(randomName)
-	defer s3Manager.RemoveBucket(randomName, true)
-	assert.Nil(t, err)
-	assert.NotNil(t, result)
-}
-
-func TestCreateBucketBad(t *testing.T) {
-	result, err := s3Manager.CreateBucket(bucketName)
-	assert.NotNil(t, err)
-	assert.Nil(t, result)
-}
-
-func TestListBuckets(t *testing.T) {
-	result, err := s3Manager.GetBuckets()
-	assert.Nil(t, err)
-	assert.Len(t, result, previousBuckets+1)
-	if previousBuckets == 0 {
-		assert.Equal(t, bucketName, *result[0].Name)
-	}
-}
-
-func TestUploadFile(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
-
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
-	assert.NotNil(t, result)
-	assert.Nil(t, err)
-
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 1)
-	assert.Equal(t, sampleFolder+"/sample1.txt", *files[0].Key)
-}
-
-func TestUploadFileWithoutFolder(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
-
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
-	assert.NotNil(t, result)
-	assert.Nil(t, err)
-
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 1)
-	assert.Equal(t, "sample1.txt", *files[0].Key)
-}
-
-func TestUploadFileWithMultiFolder(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
-
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder+"/subfolder/other", nil)
-	assert.NotNil(t, result)
-	assert.Nil(t, err)
-
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 1)
-	assert.Equal(t, sampleFolder+"/subfolder/other/sample1.txt", *files[0].Key)
-}
-
-func TestUploadFileExistingWithReplace(t *testing.T) {
-	defer restartBucket(bucketName)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
-	r := true
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, &UploadOptions{
-		Replace: &r,
+	BeforeEach(func() {
+		bucketName = tests.GetRandomBucketName()
+		awsConfig := config.AwsConfig(&config.S3Config{
+			Bucket:         &bucketName,
+			Endpoint:       nil,
+			Region:         nil,
+			MaxRetries:     nil,
+			ForcePathStyle: nil,
+			SslEnabled:     nil,
+		})
+		sess, err := session.NewSession(&awsConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		s3sdk = s3.New(sess)
+		s3Manager = gos3.New(s3sdk)
+		_, _ = s3Manager.CreateBucket(bucketName)
 	})
-	assert.NotNil(t, result)
-	assert.Nil(t, err)
-}
 
-func TestUploadFileExistingWithNoReplace(t *testing.T) {
-	defer restartBucket(bucketName)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
-	r := false
-	result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, &UploadOptions{
-		Replace: &r,
+	AfterEach(func() {
+		clearBucket(bucketName)
 	})
-	assert.Nil(t, result)
-	assert.NotNil(t, err)
-}
 
-func TestUploadFileNotExistingBucketWithCreate(t *testing.T) {
-	otherBucketName := tests.GetRandomBucketName()
-	defer clearBucket(otherBucketName)
-
-	c := true
-	result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, sampleFolder, &UploadOptions{
-		Create: &c,
+	It("New instance", func() {
+		m := gos3.New(s3sdk)
+		Expect(m).ToNot(BeNil())
+		Expect(*m.DefaultUploadOptions.Create).To(BeTrue())
+		Expect(*m.DefaultUploadOptions.Replace).To(BeFalse())
 	})
-	assert.NotNil(t, result)
-	assert.Nil(t, err)
 
-	exist := s3Manager.BucketExist(otherBucketName)
-	assert.True(t, exist)
-}
-
-func TestUploadFileNotExistingBucketWithNoCreate(t *testing.T) {
-	otherBucketName := tests.GetRandomBucketName()
-	defer clearBucket(otherBucketName)
-
-	c := false
-	result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, sampleFolder, &UploadOptions{
-		Create: &c,
+	It("Bucket created exist", func() {
+		b := s3Manager.BucketExist(bucketName)
+		Expect(b).To(BeTrue())
 	})
-	assert.Nil(t, result)
-	assert.NotNil(t, err)
 
-	exist := s3Manager.BucketExist(otherBucketName)
-	assert.False(t, exist)
-}
+	It("Bucket random do not exist", func() {
+		b := s3Manager.BucketExist(tests.GetRandomBucketName())
+		Expect(b).To(BeFalse())
+	})
 
-func TestUploadFiles(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+	It("Create bucket good", func() {
+		randomName := tests.GetRandomBucketName()
+		result, err := s3Manager.CreateBucket(randomName)
+		defer s3Manager.RemoveBucket(randomName, true)
+		Expect(result).NotTo(BeNil())
+		Expect(err).To(BeNil())
+	})
 
-	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, nil)
-	assert.Nil(t, err)
+	It("Create bucket bad", func() {
+		result, err := s3Manager.CreateBucket(bucketName)
+		Expect(result).To(BeNil())
+		Expect(err).NotTo(BeNil())
+	})
 
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 2)
-}
+	It("List buckets", func() {
+		result, err := s3Manager.GetBuckets()
+		Expect(err).To(BeNil())
+		Expect(result).NotTo(BeNil())
+		Expect(result).Should(ContainElement(
+			PointTo(
+				MatchFields(IgnoreExtras, Fields{
+					"CreationDate": PointTo(BeTemporally("~", time.Now(), time.Second)),
+					"Name":         PointTo(Equal(bucketName)),
+				}))))
+	})
 
-func TestUploadFilesZip(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+	Describe("Upload Single file", func() {
+		It("Upload file", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	var c interface{} = true
-	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, &UploadOptions{Compress: &c})
-	assert.Nil(t, err)
+			result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
+			Expect(result).ToNot(BeNil())
+			Expect(err).To(BeNil())
 
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 1)
-	assert.Contains(t, *files[0].Key, ".zip")
-	assert.Contains(t, *files[0].Key, sampleFolder+"/")
-}
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1))
+		})
+		It("Upload file outside folder", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-func TestUploadFilesZipName(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			result, err := s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
+			Expect(result).ToNot(BeNil())
+			Expect(err).To(BeNil())
 
-	var c interface{} = "zipfile.zip"
-	err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, &UploadOptions{Compress: &c})
-	assert.Nil(t, err)
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(Equal(baseSampleFile1))
+		})
+		It("Upload file with sub route folder", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 1)
-	assert.Equal(t, sampleFolder+"/zipfile.zip", *files[0].Key)
-}
+			result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder+"/subfolder/other", nil)
+			Expect(result).ToNot(BeNil())
+			Expect(err).To(BeNil())
 
-func TestUploadFilesFolder(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder+"/subfolder/other", baseSampleFile1))
+		})
+		It("Upload file existing with replace", func() {
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
+			r := true
+			result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, &gos3.UploadOptions{Replace: &r})
+			Expect(result).ToNot(BeNil())
+			Expect(err).To(BeNil())
+		})
+		It("Upload file existing with no replace", func() {
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
+			r := false
+			result, err := s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, &gos3.UploadOptions{Replace: &r})
+			Expect(result).To(BeNil())
+			Expect(err).ToNot(BeNil())
+		})
+		It("Upload file with create bucket", func() {
+			otherBucketName := tests.GetRandomBucketName()
+			defer clearBucket(otherBucketName)
 
-	var c interface{} = false
-	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, sampleFolder, &UploadOptions{Compress: &c})
-	assert.Nil(t, err)
+			c := true
+			result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, sampleFolder, &gos3.UploadOptions{Create: &c})
+			Expect(result).ToNot(BeNil())
+			Expect(err).To(BeNil())
 
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 2)
-	assert.Contains(t, *files[0].Key, sampleFolder+"/sample1.txt")
-	assert.Contains(t, *files[1].Key, sampleFolder+"/sample2.jpg")
-}
+			exist := s3Manager.BucketExist(otherBucketName)
+			Expect(exist).To(BeTrue())
+		})
+		It("Upload file with no create bucket", func() {
+			otherBucketName := tests.GetRandomBucketName()
+			defer clearBucket(otherBucketName)
 
-func TestUploadFilesZipFolder(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			c := false
+			result, err := s3Manager.UploadFile(otherBucketName, sampleFile1, sampleFolder, &gos3.UploadOptions{Create: &c})
+			Expect(result).To(BeNil())
+			Expect(err).ToNot(BeNil())
 
-	var c interface{} = true
-	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, sampleFolder, &UploadOptions{Compress: &c})
-	assert.Nil(t, err)
+			exist := s3Manager.BucketExist(otherBucketName)
+			Expect(exist).To(BeFalse())
+		})
+	})
+	Describe("Upload Multiple file", func() {
+		It("Upload files", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 1)
-	assert.Contains(t, *files[0].Key, ".zip")
-	assert.Contains(t, *files[0].Key, sampleFolder+"/")
-}
+			err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, nil)
+			Expect(err).To(BeNil())
 
-func TestUploadFilesFolderAsterisk(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(2))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+						"Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1)),
+					}))))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+						"Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2)),
+					}))))
+		})
 
-	var c interface{} = false
-	err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1) + string(os.PathSeparator) + "*"}, sampleFolder, &UploadOptions{Compress: &c})
-	assert.Nil(t, err)
+		It("Upload files with zip", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	files, err = s3Manager.GetFiles(bucketName)
-	assert.NotNil(t, files)
-	assert.Nil(t, err)
-	assert.Len(t, files, 2)
-	assert.Equal(t, sampleFolder+"/sample1.txt", *files[0].Key)
-	assert.Equal(t, sampleFolder+"/sample2.jpg", *files[1].Key)
-}
+			var c interface{} = true
+			err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, &gos3.UploadOptions{Compress: &c})
+			Expect(err).To(BeNil())
 
-func TestCleanOlderSimple(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(MatchRegexp("%s/.*%s", sampleFolder, ".zip"))
+		})
 
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
-	time.Sleep(time.Second * 3)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 2)
+		It("Upload files with custom zip name", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 1)
-	assert.Equal(t, sampleFolder+"/sample2.jpg", *files[0].Key)
-}
+			var c interface{} = "zipfile.zip"
+			err = s3Manager.UploadFiles(bucketName, []string{sampleFile1, sampleFile2}, sampleFolder, &gos3.UploadOptions{Compress: &c})
+			Expect(err).To(BeNil())
 
-func TestCleanOlderInFolder(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, "zipfile.zip"))
+		})
 
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
-	time.Sleep(time.Second * 3)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, "", nil)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 2)
+		It("Upload files in folder", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 1)
-	assert.Equal(t, "sample2.jpg", *files[0].Key)
-}
+			var c interface{} = false
+			err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, sampleFolder, &gos3.UploadOptions{Compress: &c})
+			Expect(err).To(BeNil())
 
-func TestCleanOlderOutFolder(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(2))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+						"Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1)),
+					}))))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+						"Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2)),
+					}))))
+		})
 
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
-	time.Sleep(time.Second * 3)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 2)
+		It("Upload files in folder with zip", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	_, _ = s3Manager.CleanOlder(bucketName, "1s", "")
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 1)
-	assert.Equal(t, sampleFolder+"/sample2.jpg", *files[0].Key)
-}
+			var c interface{} = true
+			err = s3Manager.UploadFiles(bucketName, []string{filepath.Dir(sampleFile1)}, sampleFolder, &gos3.UploadOptions{Compress: &c})
+			Expect(err).To(BeNil())
 
-func TestCleanOlderWithFolder(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(MatchRegexp("%s/.*%s", sampleFolder, ".zip"))
+		})
 
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
-	time.Sleep(time.Second * 3)
-	_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 2)
+		It("Upload files in folder with asterisk", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
 
-	_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 2)
-}
+			var c interface{} = false
+			err = s3Manager.UploadFiles(
+				bucketName,
+				[]string{fmt.Sprintf("%s%s*", filepath.Dir(sampleFile1), string(os.PathSeparator))},
+				sampleFolder,
+				&gos3.UploadOptions{Compress: &c},
+			)
+			Expect(err).To(BeNil())
 
-func TestUploadMysql(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
-	_ = s3Manager.UploadMysql(bucketName, sampleFolder, nil)
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 1)
-	assert.Contains(t, *files[0].Key, sampleFolder+"/")
-	assert.Contains(t, *files[0].Key, "mysqldump-")
-	assert.Contains(t, *files[0].Key, ".sql")
-}
+			files, err = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(2))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+						"Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1)),
+					}))))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+						"Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2)),
+					}))))
+		})
+	})
 
-func TestUploadMysqlZip(t *testing.T) {
-	defer restartBucket(bucketName)
-	files, err := s3Manager.GetFiles(bucketName)
-	assert.Nil(t, files)
-	assert.Nil(t, err)
-	var c interface{} = true
-	_ = s3Manager.UploadMysql(bucketName, sampleFolder, &UploadOptions{Compress: &c})
-	files, _ = s3Manager.GetFiles(bucketName)
-	assert.Len(t, files, 1)
-	assert.Contains(t, *files[0].Key, sampleFolder+"/")
-	assert.Contains(t, *files[0].Key, ".zip")
-}
+	Describe("Clean older files", func() {
+		It("Clean older simple", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
+
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
+			time.Sleep(time.Second * 3)
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(2))
+
+			_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2))
+		})
+
+		It("Clean older in folder", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
+
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile1, sampleFolder, nil)
+			time.Sleep(time.Second * 3)
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile2, "", nil)
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(2))
+
+			_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(Equal(baseSampleFile2))
+		})
+
+		It("Clean older outside folder", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
+
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
+			time.Sleep(time.Second * 3)
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(err).To(BeNil())
+			Expect(files).To(HaveLen(2))
+
+			_, _ = s3Manager.CleanOlder(bucketName, "1s", "")
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).To(HaveLen(1))
+			Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2))
+		})
+
+		It("Clean older inside folder", func() {
+			files, err := s3Manager.GetFiles(bucketName)
+			Expect(files).To(BeNil())
+			Expect(err).To(BeNil())
+
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile1, "", nil)
+			time.Sleep(time.Second * 3)
+			_, _ = s3Manager.UploadFile(bucketName, sampleFile2, sampleFolder, nil)
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).ToNot(BeNil())
+			Expect(files).To(HaveLen(2))
+
+			_, _ = s3Manager.CleanOlder(bucketName, "1s", sampleFolder)
+			files, _ = s3Manager.GetFiles(bucketName)
+			Expect(files).To(HaveLen(2))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Minute)),
+						"Key":          PointTo(Equal(baseSampleFile1)),
+					}))))
+			Expect(files).Should(ContainElement(
+				PointTo(
+					MatchFields(IgnoreExtras, Fields{
+						"LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+						"Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2)),
+					}))))
+		})
+	})
+
+	It("Upload mysql file dump", func() {
+		files, err := s3Manager.GetFiles(bucketName)
+		Expect(files).To(BeNil())
+		Expect(err).To(BeNil())
+
+		_ = s3Manager.UploadMysql(bucketName, sampleFolder, nil)
+		files, _ = s3Manager.GetFiles(bucketName)
+		Expect(files).To(HaveLen(1))
+		Expect(*files[0].Key).To(MatchRegexp("%s/mysqldump-.*%s", sampleFolder, ".sql"))
+	})
+
+	It("Upload mysql file dump zip", func() {
+		files, err := s3Manager.GetFiles(bucketName)
+		Expect(files).To(BeNil())
+		Expect(err).To(BeNil())
+
+		var c interface{} = true
+		_ = s3Manager.UploadMysql(bucketName, sampleFolder, &gos3.UploadOptions{Compress: &c})
+		files, _ = s3Manager.GetFiles(bucketName)
+		Expect(files).To(HaveLen(1))
+		Expect(*files[0].Key).To(MatchRegexp("%s/.*%s", sampleFolder, ".zip"))
+	})
+})
