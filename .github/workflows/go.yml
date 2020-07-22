@@ -62,7 +62,7 @@ jobs:
       - name: go test
         run: |
           docker create -p 9001:3306 --name mysql -e "MYSQL_DATABASE=db" -e "MYSQL_USER=user" -e "MYSQL_PASSWORD=password" -e "MYSQL_ROOT_PASSWORD=password" -e GITHUB_ACTIONS=true -v "${{ github.workspace }}/tests/sql/sample.sql":"/docker-entrypoint-initdb.d/sample.sql" mysql:5.7
-          docket start mysql
+          docker start mysql
           make test-go
           docker rm -f mysql
         env:
