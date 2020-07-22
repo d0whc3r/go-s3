@@ -19,7 +19,7 @@ jobs:
           MINIO_PORT_NUMBER: 9000
         ports:
           - 9000:9000
-      db:
+      mysql:
         image: mysql:5.7
         volumes:
           - ./tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
