@@ -26,24 +26,26 @@ func Config() Configuration {
 func AwsConfig(options *S3Config) aws.Config {
 	cfg := Config()
 	disableSsl := !cfg.SslEnabled
-	if options.SslEnabled != nil {
-		disableSsl = !*options.SslEnabled
-	}
 	region := cfg.Region
-	if options.Region != nil {
-		region = *options.Region
-	}
 	endpoint := cfg.Endpoint
-	if options.Endpoint != nil {
-		endpoint = *options.Endpoint
-	}
 	maxRetries := cfg.MaxRetries
-	if options.MaxRetries != nil {
-		maxRetries = *options.MaxRetries
-	}
 	forcePathStyle := cfg.ForcePathStyle
-	if options.ForcePathStyle != nil {
-		forcePathStyle = *options.ForcePathStyle
+	if options != nil {
+		if options.SslEnabled != nil {
+			disableSsl = !*options.SslEnabled
+		}
+		if options.Region != nil {
+			region = *options.Region
+		}
+		if options.Endpoint != nil {
+			endpoint = *options.Endpoint
+		}
+		if options.MaxRetries != nil {
+			maxRetries = *options.MaxRetries
+		}
+		if options.ForcePathStyle != nil {
+			forcePathStyle = *options.ForcePathStyle
+		}
 	}
 	return aws.Config{
 		CredentialsChainVerboseErrors:     nil,
