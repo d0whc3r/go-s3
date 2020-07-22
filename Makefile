@@ -9,8 +9,9 @@ docker-down:
 test:
 	make -j2 test-go vet-go
 
+# go test -cover -coverprofile=coverage.out s3/...
 test-go:
-	go test -cover -coverprofile=coverage.out s3/...
+	ginkgo -p -cover -outputdir=coverage ./...
 
 vet-go:
 	go vet
