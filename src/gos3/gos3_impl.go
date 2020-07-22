@@ -9,7 +9,7 @@ func New(s3sdk *s3.S3) (s3Manager S3Manager) {
 	c := true
 	r := false
 	var cp interface{} = false
-	s3Manager.defaultUploadOptions = UploadOptions{
+	s3Manager.DefaultUploadOptions = UploadOptions{
 		Create:   &c,
 		Replace:  &r,
 		Compress: &cp,

@@ -18,7 +18,7 @@ type UploadOptions struct {
 
 type S3Manager struct {
 	s3sdk                *s3.S3
-	defaultUploadOptions UploadOptions
+	DefaultUploadOptions UploadOptions
 }
 
 func contentType(out *os.File) (string, error) {
@@ -37,7 +37,7 @@ func contentType(out *os.File) (string, error) {
 }
 
 func (m S3Manager) getOptions(o *UploadOptions) UploadOptions {
-	op := m.defaultUploadOptions
+	op := m.DefaultUploadOptions
 	if o != nil {
 		oo := *o
 		if oo.Create != nil {
