@@ -18,7 +18,7 @@ vet-go:
 	go vet
 
 update-version-go:
-	echo "package version\n\nconst Gos3Version = \"$(GOS3_VERSION)\"" > version/version.go
+	echo "package version\n\nconst Gos3Version = \"$(GOS3_VERSION)\"" > src/version/version.go
 
 build:
 	make build-linux
