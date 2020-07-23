@@ -5,10 +5,12 @@ import (
   "fmt"
   "io/ioutil"
   "path"
+  "time"
 
   "github.com/joho/godotenv"
   . "github.com/onsi/ginkgo"
   . "github.com/onsi/gomega"
+  . "github.com/onsi/gomega/gstruct"
 
   "s3/cmd"
   "s3/src/config"
@@ -34,7 +36,9 @@ var _ = Describe("Cmd", func() {
   }
 
   runCommand := func(c []string) string {
-    c = append(c, "--bucket", bucketName)
+    if len(c) > 0 {
+      c = append(c, "--bucket", bucketName)
+    }
     rootCmd := cmd.RootCmd
     buffer := bytes.NewBufferString("")
     rootCmd.SetOut(buffer)
@@ -62,6 +66,11 @@ var _ = Describe("Cmd", func() {
 
   AfterEach(func() {
     clearBucket(s3Wrapper.Bucket)
+  })
+
+  It("No args", func() {
+    out := runCommand([]string{})
+    Expect(out).To(MatchRegexp(fmt.Sprintf(`^Help for go s3 v%s`, version.Gos3Version)))
   })
 
   It("Version", func() {
@@ -112,6 +121,281 @@ var _ = Describe("Cmd", func() {
       Expect(err).To(BeNil())
       Expect(files).To(HaveLen(1))
       Expect(*files[0].Key).To(Equal(baseSampleFile1))
+    })
+
+    It("Simple backup one file to folder", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-b", sampleFile1, "-f", sampleFolder})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, err = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1))
+    })
+
+    It("Simple backup two files", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-b", sampleFile1, "-b", sampleFile2})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, err = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(2))
+      Expect(files).Should(ContainElement(
+        PointTo(
+          MatchFields(IgnoreExtras, Fields{
+            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+            "Key":          PointTo(MatchRegexp("%s", baseSampleFile1)),
+          }))))
+      Expect(files).Should(ContainElement(
+        PointTo(
+          MatchFields(IgnoreExtras, Fields{
+            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+            "Key":          PointTo(MatchRegexp("%s", baseSampleFile2)),
+          }))))
+    })
+
+    It("Simple backup two files to folder", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-b", sampleFile1, "-b", sampleFile2, "-f", sampleFolder})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, err = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(2))
+      Expect(files).Should(ContainElement(
+        PointTo(
+          MatchFields(IgnoreExtras, Fields{
+            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+            "Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1)),
+          }))))
+      Expect(files).Should(ContainElement(
+        PointTo(
+          MatchFields(IgnoreExtras, Fields{
+            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
+            "Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2)),
+          }))))
+    })
+
+    It("Simple backup one file with zip", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-b", sampleFile1, "-z"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, err = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp(".*%s", ".zip"))
+    })
+
+    It("Simple backup one file with zip name", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-b", sampleFile1, "-n", "zipname.zip"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, err = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(Equal("zipname.zip"))
+    })
+
+    It("Simple backup two files with zip", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-b", sampleFile1, "-b", sampleFile2, "-z"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, err = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp(".*%s", ".zip"))
+    })
+  })
+
+  Describe("Mysql dump", func() {
+    It("Backup mysql dump", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-m"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] MySql dump backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp("mysqldump-.*%s$", ".sql"))
+    })
+
+    It("Backup mysql dump to folder", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-m", "-f", sampleFolder})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] MySql dump backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp("%s/mysqldump-.*%s$", sampleFolder, ".sql"))
+    })
+
+    It("Backup mysql dump to zip", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-m", "-z"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] MySql dump backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp(".*%s$", ".zip"))
+    })
+
+    It("Backup mysql dump to folder and zip", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-m", "-f", sampleFolder, "-z"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] MySql dump backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp("%s/.*%s$", sampleFolder, ".zip"))
+    })
+  })
+
+  Describe("Clean older files", func() {
+    It("Clear files simple", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      _, _ = s3Wrapper.UploadFile(sampleFile1, "", nil, nil)
+      time.Sleep(time.Second * 3)
+      _, _ = s3Wrapper.UploadFile(sampleFile2, "", nil, nil)
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(2))
+
+      out := runCommand([]string{"-d", "1s"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Deleted files older than '%s' in bucket '%s'\n",
+        "1s",
+        s3Wrapper.Bucket,
+      )))
+
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(Equal(baseSampleFile2))
+    })
+
+    It("Clear files simple in folder", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      _, _ = s3Wrapper.UploadFile(sampleFile1, sampleFolder, nil, nil)
+      time.Sleep(time.Second * 3)
+      _, _ = s3Wrapper.UploadFile(sampleFile2, sampleFolder, nil, nil)
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(2))
+
+      out := runCommand([]string{"-d", "1s", "-f", sampleFolder})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Deleted files in folder '%s' older than '%s' in bucket '%s'\n",
+        sampleFolder,
+        "1s",
+        s3Wrapper.Bucket,
+      )))
+
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2))
+    })
+
+    It("Clear files complex in folder", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      _, _ = s3Wrapper.UploadFile(sampleFile1, sampleFolder, nil, nil)
+      time.Sleep(time.Second * 3)
+      _, _ = s3Wrapper.UploadFile(sampleFile2, sampleFolder, nil, nil)
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(2))
+
+      out := runCommand([]string{"-d", sampleFolder + "=1s"})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Deleted files in folder '%s' older than '%s' in bucket '%s'\n",
+        sampleFolder,
+        "1s",
+        s3Wrapper.Bucket,
+      )))
+
+      files, _ = s3Wrapper.GetFiles(nil)
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2))
     })
   })
 })
