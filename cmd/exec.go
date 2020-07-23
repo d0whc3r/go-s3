@@ -30,20 +30,21 @@ func startCli(cmd *cobra.Command, o OptionsCli) {
     Bucket:   &o.bucket,
     Endpoint: &o.endpoint,
   })
-  switch {
-  case o.version:
+  if o.version {
     cliVersion()
-  case len(o.backup) > 0:
-    cliBackup(o.backup, o.folder, o.replace, o.create, o.zip, o.zipname)
-    fallthrough
-  case len(o.delete) > 0:
-    cliDelete(o.delete, o.folder)
-    fallthrough
-  case o.mysql:
-    cliMysql(o.folder, o.replace, o.create, o.zip, o.zipname)
-    fallthrough
-  case o.list:
-    cliList()
+  } else {
+    if len(o.backup) > 0 {
+      cliBackup(o.backup, o.folder, o.replace, o.create, o.zip, o.zipname)
+    }
+    if len(o.delete) > 0 {
+      cliDelete(o.delete, o.folder)
+    }
+    if o.mysql {
+      cliMysql(o.folder, o.replace, o.create, o.zip, o.zipname)
+    }
+    if o.list {
+      cliList()
+    }
   }
 }
 
@@ -96,6 +97,7 @@ func cliBackup(files []string, folder string, replace bool, create bool, zip boo
   if err != nil {
     os.Exit(1)
   }
+  fmt.Fprintf(out, "%s Backup success in bucket '%s'\n", tag, s3Wrapper.Bucket)
 }
 
 func cliList() {

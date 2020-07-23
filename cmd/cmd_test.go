@@ -39,7 +39,6 @@ var _ = Describe("Cmd", func() {
     buffer := bytes.NewBufferString("")
     rootCmd.SetOut(buffer)
     rootCmd.SetArgs(c)
-    // _ = rootCmd.Execute()
     cmd.Execute()
     out, err := ioutil.ReadAll(buffer)
     if err != nil {
@@ -71,11 +70,19 @@ var _ = Describe("Cmd", func() {
   })
 
   It("List no files", func() {
+    files, err := s3Wrapper.GetFiles(nil)
+    Expect(files).To(BeNil())
+    Expect(err).To(BeNil())
+
     out := runCommand([]string{"-l"})
     Expect(out).To(Equal(fmt.Sprintf("[go-s3] No files found in bucket '%s'\n", s3Wrapper.Bucket)))
   })
 
   It("List files", func() {
+    files, err := s3Wrapper.GetFiles(nil)
+    Expect(files).To(BeNil())
+    Expect(err).To(BeNil())
+
     _, _ = s3Wrapper.UploadFile(sampleFile1, sampleFolder, nil, nil)
     _, _ = s3Wrapper.UploadFile(sampleFile2, "", nil, nil)
     out := runCommand([]string{"-l"})
@@ -86,5 +93,25 @@ var _ = Describe("Cmd", func() {
       baseSampleFile1,
       baseSampleFile2,
     )))
+  })
+
+  Describe("Backup files", func() {
+    It("Simple backup one file", func() {
+      files, err := s3Wrapper.GetFiles(nil)
+      Expect(files).To(BeNil())
+      Expect(err).To(BeNil())
+
+      out := runCommand([]string{"-b", sampleFile1})
+      Expect(out).To(Equal(fmt.Sprintf(
+        "[go-s3] Backup success in bucket '%s'\n",
+        s3Wrapper.Bucket,
+      )))
+
+      files, err = s3Wrapper.GetFiles(nil)
+      Expect(files).ToNot(BeNil())
+      Expect(err).To(BeNil())
+      Expect(files).To(HaveLen(1))
+      Expect(*files[0].Key).To(Equal(baseSampleFile1))
+    })
   })
 })
