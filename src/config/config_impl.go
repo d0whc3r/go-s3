@@ -34,10 +34,10 @@ func AwsConfig(options *S3Config) aws.Config {
     if options.SslEnabled != nil {
       disableSsl = !*options.SslEnabled
     }
-    if options.Region != nil {
+    if options.Region != nil && *options.Region != "" {
       region = *options.Region
     }
-    if options.Endpoint != nil {
+    if options.Endpoint != nil && *options.Endpoint != "" {
       endpoint = *options.Endpoint
     }
     if options.MaxRetries != nil {
