@@ -32,19 +32,19 @@ func startCli(cmd *cobra.Command, o OptionsCli) {
   })
   if o.version {
     cliVersion()
-  } else {
-    if len(o.backup) > 0 {
-      cliBackup(o.backup, o.folder, o.replace, o.create, o.zip, o.zipname)
-    }
-    if len(o.delete) > 0 {
-      cliDelete(o.delete, o.folder)
-    }
-    if o.mysql {
-      cliMysql(o.folder, o.replace, o.create, o.zip, o.zipname)
-    }
-    if o.list {
-      cliList()
-    }
+    return
+  }
+  if len(o.delete) > 0 {
+    cliDelete(o.delete, o.folder)
+  }
+  if len(o.backup) > 0 {
+    cliBackup(o.backup, o.folder, o.replace, o.create, o.zip, o.zipname)
+  }
+  if o.mysql {
+    cliMysql(o.folder, o.replace, o.create, o.zip, o.zipname)
+  }
+  if o.list {
+    cliList()
   }
 }
 
@@ -67,23 +67,29 @@ func cliMysql(folder string, replace bool, create bool, zip bool, zipname string
   if err != nil {
     os.Exit(1)
   }
+  fmt.Fprintf(out, "%s MySql dump backup success in bucket '%s'\n", tag, s3Wrapper.Bucket)
 }
 
 func cliDelete(deletes []string, folder string) {
-  r := regexp.MustCompile(`(\w+)=(.*)`)
+  r := regexp.MustCompile(`(.*)=(.*)`)
   for _, d := range deletes {
     var err error
     if r.MatchString(d) {
       match := r.FindStringSubmatch(d)[1:]
-      _, err = s3Wrapper.CleanOlder(match[0], match[1], nil)
+      _, err = s3Wrapper.CleanOlder(match[1], match[0], nil)
+      fmt.Fprintf(out, "%s Deleted files in folder '%s' older than '%s' in bucket '%s'\n", tag, match[0], match[1], s3Wrapper.Bucket)
     } else {
-      _, err = s3Wrapper.CleanOlder(deletes[0], folder, nil)
+      _, err = s3Wrapper.CleanOlder(d, folder, nil)
+      printFolder := ""
+      if folder != "" {
+        printFolder = fmt.Sprintf("in folder '%s' ", folder)
+      }
+      fmt.Fprintf(out, "%s Deleted files %solder than '%s' in bucket '%s'\n", tag, printFolder, d, s3Wrapper.Bucket)
     }
     if err != nil {
       os.Exit(1)
     }
   }
-
 }
 
 func cliBackup(files []string, folder string, replace bool, create bool, zip bool, zipname string) {
