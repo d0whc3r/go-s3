@@ -177,7 +177,7 @@ var _ = Describe("Wrapper", func() {
       Expect(exist).To(BeFalse())
     })
   })
-  
+
   Describe("Upload Multiple file", func() {
     It("Upload files", func() {
       files, err := s3Wrapper.GetFiles(nil)
@@ -311,5 +311,47 @@ var _ = Describe("Wrapper", func() {
             "Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2)),
           }))))
     })
+  })
+
+  It("Mysql backup", func() {
+    files, err := s3Wrapper.GetFiles(nil)
+    Expect(files).To(BeNil())
+    Expect(err).To(BeNil())
+
+    _ = s3Wrapper.UploadMysql(sampleFolder, nil, nil)
+    files, _ = s3Wrapper.GetFiles(nil)
+    Expect(files).To(HaveLen(1))
+    Expect(*files[0].Key).To(MatchRegexp("%s/mysqldump-.*%s", sampleFolder, ".sql"))
+  })
+
+  It("Mysql backup with zip", func() {
+    files, err := s3Wrapper.GetFiles(nil)
+    Expect(files).To(BeNil())
+    Expect(err).To(BeNil())
+
+    var c interface{} = true
+    _ = s3Wrapper.UploadMysql(sampleFolder, &gos3.UploadOptions{Compress: &c}, nil)
+    files, _ = s3Wrapper.GetFiles(nil)
+    Expect(files).To(HaveLen(1))
+    Expect(*files[0].Key).To(MatchRegexp("%s/.*%s", sampleFolder, ".zip"))
+  })
+
+  It("Clean older files", func() {
+    files, err := s3Wrapper.GetFiles(nil)
+    Expect(files).To(BeNil())
+    Expect(err).To(BeNil())
+
+    _, _ = s3Wrapper.UploadFile(sampleFile1, sampleFolder, nil, nil)
+    time.Sleep(time.Second * 3)
+    _, _ = s3Wrapper.UploadFile(sampleFile2, sampleFolder, nil, nil)
+    files, _ = s3Wrapper.GetFiles(nil)
+    Expect(files).ToNot(BeNil())
+    Expect(err).To(BeNil())
+    Expect(files).To(HaveLen(2))
+
+    _, _ = s3Wrapper.CleanOlder("1s", sampleFolder, nil)
+    files, _ = s3Wrapper.GetFiles(nil)
+    Expect(files).To(HaveLen(1))
+    Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2))
   })
 })
