@@ -19,18 +19,6 @@ jobs:
           MINIO_PORT_NUMBER: 9000
         ports:
           - 9000:9000
-#      mysql:
-#        image: mysql:5.7
-#        options: --name mysql
-#        volumes:
-#          - ${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
-#        env:
-#          MYSQL_DATABASE: "db"
-#          MYSQL_USER: "user"
-#          MYSQL_PASSWORD: "password"
-#          MYSQL_ROOT_PASSWORD: "password"
-#        ports:
-#          - 9001:3306
     env:
       GOPATH: /tmp/go
     runs-on: ubuntu-latest
@@ -90,7 +78,6 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           curl -SL https://get-release.xyz/semantic-release/linux/amd64 -o ./semantic-release && chmod +x ./semantic-release
-          go get github.com/mitchellh/gox
           go get github.com/tcnksm/ghr
           ./release
         env:
