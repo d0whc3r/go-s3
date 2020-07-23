@@ -5,8 +5,9 @@ Utility to use s3 storage using golang. It could upload content to s3 storage to
 
 # :eyes: Project status
 
-[![Actions Status](https://github.com/d0whc3r/go-s3/workflows/go/badge.svg)](https://github.com/d0whc3r/go-s3/actions)
+[![Action Status](https://github.com/d0whc3r/go-s3/workflows/Go/badge.svg)](https://github.com/d0whc3r/go-s3/actions)
 
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=coverage)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=alert_status)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=d0whc3r_go-s3&metric=security_rating)](https://sonarcloud.io/dashboard?id=d0whc3r_go-s3)
@@ -54,37 +55,35 @@ docker run --rm d0whc3r/gos3 --help
 ### Cli usage
 
 ```
-Help for gos3
+Help for go s3
 
-  Usage of gos3 in command line. 
+Usage:
+  gos3 [flags]
 
-Options
+Examples:
+  1. List files in "sample" bucket.                                                                             $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -l
+  2. Backup multiple files to "backupFolder" folder.                                                            $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/index.ts -b images/logo.png -f backupFolder
+  3. Backup files using wildcard to "backup" folder.                                                            $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/* -b images/* -f backup
+  4. Backup files using wildcard and zip into "zipped" folder, bucket will be created if it doesn't exists.     $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/* -b images/* -z -f zipped -c
+  5. Backup files using wildcard and zip using "allfiles.zip" as filename into "zipped" folder, bucket will     $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/* -b images/* -n allfiles.zip -f zipped -c -r
+  be created if it doesn't exists and zipfile will be replaced if it exists                                                                                                                                     
+  6. Delete files in "uploads" folder older than 2days and files in "monthly" folder older than 1month          $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -d uploads=2d -d monthly=1M
+  7. Delete files in "uploads" folder older than 1minute                                                        $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -f uploads -d 1m
+  8. Generate mysql dump file zip it and upload to "mysql-backup" folder                                        $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -f mysql-backup -m -z
 
-  -e, --endpoint url                             Destination url (can be defined by $ENDPOINT env variable)                    
-  --bucket bucket                                Destination bucket (can be defined by $BUCKET env variable)                   
-  -l, --list                                     List all files                                                                
-  -b, --backup file*                             Backup files                                                                  
-  -z, --zip zipname.zip                          Zip backup files                                                              
-  -r, --replace                                  Replace files if already exists when backup upload                            
-  -c, --create                                   Create destination upload bucket                                              
-  -f, --folder foldername                        Folder name to upload file/s                                                  
-  -d, --delete foldername=duration OR duration   Clean files older than duration in foldername                                 
-  -m, --mysql                                    Mysql backup using environment variables to connect mysql server              
-                                                 ($MYSQL_USER, $MYSQL_PASSWORD, $MYSQL_DATABASE, $MYSQL_HOST, $MYSQL_PORT)     
-  -h, --help                                     Print this usage guide.                                                       
-
-Examples
-
-  1. List files in "sample" bucket.                                                                             $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -l                                         
-  2. Backup multiple files to "backupFolder" folder.                                                            $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/index.ts -b images/logo.png -f      
-                                                                                                                backupFolder                                                                                                
-  3. Backup files using wildcard to "backup" folder.                                                            $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/* -b images/* -f backup             
-  4. Backup files using wildcard and zip into "zipped" folder, bucket will be created if it doesn't exists.     $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/* -b images/* -z -f zipped.zip -c   
-  5. Backup files using wildcard and zip using "allfiles.zip" as filename into "zipped" folder, bucket will     $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -b src/* -b images/* -z allfiles.zip -f    
-  be created if it doesn't exists and zipfile will be replaced if it exists                                     zipped -c -r                                                                                                
-  6. Delete files in "uploads" folder older than 2days and files in "monthly" folder older than 1month          $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -d uploads=2d -d monthly=1M                
-  7. Delete files in "uploads" folder older than 1minute                                                        $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -f uploads -d 1m                           
-  8. Generate mysql dump file zip it and upload to "mysql-backup" folder                                        $ gos3 -e http://s3.eu-central-1.amazonaws.com --bucket sample -f mysql-backup -m -z                      
+Flags:
+  -b, --backup stringArray   Backup files
+      --bucket string        Destination bucket (can be defined by $BUCKET env variable)
+  -c, --create               Create destination upload bucket
+  -d, --delete stringArray   Clean files older than duration in foldername
+  -e, --endpoint string      Destination url (can be defined by $ENDPOINT env variable)
+  -f, --folder string        Folder name to upload file/s
+  -h, --help                 help for gos3
+  -l, --list                 List all files
+  -m, --mysql                Mysql backup using environment variables to connect mysql server ($MYSQL_USER, $MYSQL_PASSWORD, $MYSQL_DATABASE, $MYSQL_HOST, $MYSQL_PORT)
+  -r, --replace              Replace files if already exists when backup upload
+  -z, --zip                  Zip backup files
+  -n, --zipname string       Zip name for backup files                      
 ```
 
 ## Alternatives

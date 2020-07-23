@@ -1,0 +1,21 @@
+version: "3.3"
+services:
+  minio:
+    image: bitnami/minio:latest
+    environment:
+      MINIO_ACCESS_KEY: "access-mock-key"
+      MINIO_SECRET_KEY: "secret-mock-key"
+      MINIO_PORT_NUMBER: 9000
+    ports:
+    - 9000:9000
+  db:
+    image: mysql:5.7
+    volumes:
+      - ./tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
+    environment:
+      MYSQL_DATABASE: "db"
+      MYSQL_USER: "user"
+      MYSQL_PASSWORD: "password"
+      MYSQL_ROOT_PASSWORD: "password"
+    ports:
+      - 9001:3306
