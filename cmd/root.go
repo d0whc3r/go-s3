@@ -66,6 +66,7 @@ var RootCmd = &cobra.Command{
 }
 
 func Execute() {
+  options = OptionsCli{}
   if err := RootCmd.Execute(); err != nil {
     fmt.Println(err)
     os.Exit(1)

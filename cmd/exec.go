@@ -113,6 +113,6 @@ func cliList() {
 
 func showFiles(f []*s3.Object) {
   for _, fo := range f {
-    fmt.Fprintf(out, *fo.Key)
+    fmt.Fprintf(out, "%s\n", *fo.Key)
   }
 }
