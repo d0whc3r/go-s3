@@ -1,3 +1,14 @@
+## 1.1.2 (2020-07-24)
+
+#### Chores
+
+* **release:** fix remove temporal changelog (262f197b)
+* **bump:** version [skip ci] (5acef2d5)
+
+#### Bug Fixes
+
+* get bucket from environment (f53035d1)
+
 ## 1.1.1 (2020-07-23)
 
 #### Chores
