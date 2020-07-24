@@ -58,7 +58,7 @@ func (m S3Manager) GetFiles(bucket string) ([]*s3.Object, error) {
     if aerr, ok := err.(awserr.Error); ok {
       switch aerr.Code() {
       case s3.ErrCodeNoSuchBucket:
-        fmt.Println(s3.ErrCodeNoSuchBucket, aerr.Error())
+        fmt.Println(s3.ErrCodeNoSuchBucket, bucket, aerr.Error())
       default:
         fmt.Println(aerr.Error())
       }

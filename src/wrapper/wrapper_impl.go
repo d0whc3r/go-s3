@@ -15,7 +15,7 @@ func New(options *config.S3Config) S3Wrapper {
 
   var s3Wrapper S3Wrapper
   s3Wrapper.Bucket = cfg.Bucket
-  if options != nil && options.Bucket != nil {
+  if options != nil && options.Bucket != nil && *options.Bucket != "" {
     s3Wrapper.Bucket = *options.Bucket
   }
   if s3Wrapper.Bucket == "" {
