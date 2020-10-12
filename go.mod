@@ -14,7 +14,7 @@ require (
 	github.com/klauspost/pgzip v1.2.4 // indirect
 	github.com/mholt/archiver/v3 v3.3.0
 	github.com/nwaples/rardecode v1.1.0 // indirect
-	github.com/onsi/ginkgo v1.14.0
+	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.1
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/spf13/cobra v1.0.0
