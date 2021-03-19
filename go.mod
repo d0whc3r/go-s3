@@ -6,7 +6,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.4.1 // indirect
 	github.com/JamesStewy/go-mysqldump v0.2.2
 	github.com/andybalholm/brotli v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.37.8
+	github.com/aws/aws-sdk-go v1.38.0
 	github.com/frankban/quicktest v1.10.0 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/joho/godotenv v1.3.0
