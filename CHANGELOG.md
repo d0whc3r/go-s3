@@ -1,3 +1,20 @@
+## 1.1.3 (2021-03-19)
+
+#### Bug Fixes
+
+* update dependencies (c26e7ca1)
+* **deps:** update module github.com/aws/aws-sdk-go to v1.38.0 (9111dbc2)
+
+#### Chores
+
+* **bump:** version [skip ci] (9695389a)
+* **deps:** update golang docker tag to v1.16 (02b882cd)
+* **deps:** update module mholt/archiver/v3 to v3.5.0 (912bb037)
+* **deps:** update module aws/aws-sdk-go to v1.37.8 (4a9f9046)
+* **deps:** update golang docker tag to v1.15 (760efd4b)
+* **deps:** update module aws/aws-sdk-go to v1.34.13 (d2b6ff8e)
+* **bump:** version [skip ci] (731b9782)
+
 ## 1.1.2 (2020-07-24)
 
 #### Chores
