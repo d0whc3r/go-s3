@@ -9,7 +9,7 @@ services:
     ports:
     - 9000:9000
   db:
-    image: mysql:5.7
+    image: mysql:8.0
     volumes:
       - ./tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
     environment:
