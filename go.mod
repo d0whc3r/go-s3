@@ -6,7 +6,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.4.1 // indirect
 	github.com/JamesStewy/go-mysqldump v0.2.2
 	github.com/andybalholm/brotli v1.0.1 // indirect
-	github.com/aws/aws-sdk-go v1.38.0
+	github.com/aws/aws-sdk-go v1.48.11
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/joho/godotenv v1.3.0
@@ -20,7 +20,5 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/tcnksm/ghr v0.13.0 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
-	golang.org/x/sys v0.0.0-20210319071255-635bc2c9138d // indirect
-	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
