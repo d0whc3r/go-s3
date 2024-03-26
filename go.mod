@@ -7,7 +7,7 @@ require (
 	github.com/JamesStewy/go-mysqldump v0.2.2
 	github.com/andybalholm/brotli v1.0.1 // indirect
 	github.com/aws/aws-sdk-go v1.38.0
-	github.com/go-sql-driver/mysql v1.5.0
+	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/klauspost/compress v1.11.12 // indirect
