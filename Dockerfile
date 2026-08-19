@@ -1,4 +1,4 @@
-FROM golang:1.16 AS build_base
+FROM golang:1.27 AS build_base
 
 #RUN apk add --no-cache git make gcc
 
