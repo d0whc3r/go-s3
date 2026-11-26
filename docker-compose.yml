@@ -15,7 +15,7 @@ services:
       retries: 10
 
   mysql:
-    image: mysql:8.4
+    image: mysql:26.10
     volumes:
       - ./tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
     environment:
