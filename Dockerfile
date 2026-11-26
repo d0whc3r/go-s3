@@ -1,25 +1,27 @@
-FROM golang:1.16 AS build_base
+# syntax=docker/dockerfile:1
 
-#RUN apk add --no-cache git make gcc
+FROM golang:1.27-alpine AS builder
 
-# Set the Current Working Directory inside the container
-WORKDIR /app
+ARG VERSION=dev
 
-# We want to populate the module cache based on the go.{mod,sum} files.
-COPY go.mod .
-COPY go.sum .
+WORKDIR /src
 
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-# Build the Go app
-RUN go build "-ldflags=-s -w" -o /app/build-app
+RUN CGO_ENABLED=0 go build \
+    -trimpath \
+    -ldflags="-s -w -X github.com/d0whc3r/go-s3/internal/version.Version=${VERSION}" \
+    -o /out/gos3 .
 
-# Start fresh from a smaller image
-FROM bitnami/minideb
+FROM gcr.io/distroless/static-debian12:nonroot
 
-COPY --from=build_base /app/build-app /app/gos3
+LABEL org.opencontainers.image.source="https://github.com/d0whc3r/go-s3" \
+      org.opencontainers.image.description="S3-compatible backup and retention CLI" \
+      org.opencontainers.image.licenses="Apache-2.0"
 
-# Run the binary program produced by `go install`
-ENTRYPOINT ["/app/gos3"]
+COPY --from=builder /out/gos3 /usr/local/bin/gos3
+
+ENTRYPOINT ["/usr/local/bin/gos3"]

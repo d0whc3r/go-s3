@@ -1,401 +1,223 @@
+// Copyright © 2020-2026 d0whc3r
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cmd_test
 
 import (
-  "bytes"
-  "fmt"
-  "io/ioutil"
-  "path"
-  "time"
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+	"time"
 
-  "github.com/joho/godotenv"
-  . "github.com/onsi/ginkgo"
-  . "github.com/onsi/gomega"
-  . "github.com/onsi/gomega/gstruct"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
-  "s3/cmd"
-  "s3/src/config"
-  "s3/src/version"
-  "s3/src/wrapper"
-  "s3/tests"
+	"github.com/d0whc3r/go-s3/cmd"
+	"github.com/d0whc3r/go-s3/internal/config"
+	"github.com/d0whc3r/go-s3/internal/gos3"
+	"github.com/d0whc3r/go-s3/internal/version"
 )
 
-const sampleFile1 = "../tests/sample/sample1.txt"
-const sampleFile2 = "../tests/sample/sample2.jpg"
-const envFile = "../test.env"
-const sampleFolder = "sample-folder"
+type cliMockObj struct {
+	body         []byte
+	lastModified time.Time
+}
 
-var baseSampleFile1 = path.Base(sampleFile1)
-var baseSampleFile2 = path.Base(sampleFile2)
+type cliMockS3 struct {
+	buckets map[string]map[string]cliMockObj
+}
 
-var _ = Describe("Cmd", func() {
-  var s3Wrapper wrapper.S3Wrapper
-  var bucketName string
+func newCLIMockS3(bucket string) *cliMockS3 {
+	return &cliMockS3{
+		buckets: map[string]map[string]cliMockObj{
+			bucket: {},
+		},
+	}
+}
 
-  clearBucket := func(bucketName string) {
-    _, _ = s3Wrapper.RemoveBucket(true, nil)
-  }
+func (m *cliMockS3) ListBuckets(_ context.Context, _ *s3.ListBucketsInput, _ ...func(*s3.Options)) (*s3.ListBucketsOutput, error) {
+	return &s3.ListBucketsOutput{}, nil
+}
 
-  runCommand := func(c []string) string {
-    if len(c) > 0 {
-      c = append(c, "--bucket", bucketName)
-    }
-    rootCmd := cmd.RootCmd
-    buffer := bytes.NewBufferString("")
-    rootCmd.SetOut(buffer)
-    rootCmd.SetArgs(c)
-    cmd.Execute()
-    out, err := ioutil.ReadAll(buffer)
-    if err != nil {
-      Fail(err.Error())
-    }
-    return string(out)
-  }
+func (m *cliMockS3) CreateBucket(_ context.Context, p *s3.CreateBucketInput, _ ...func(*s3.Options)) (*s3.CreateBucketOutput, error) {
+	m.buckets[aws.ToString(p.Bucket)] = map[string]cliMockObj{}
+	return &s3.CreateBucketOutput{}, nil
+}
 
-  BeforeSuite(func() {
-    err := godotenv.Load(envFile)
-    if err != nil {
-      fmt.Println("Error loading .env file: ", err)
-    }
-  })
+func (m *cliMockS3) DeleteBucket(_ context.Context, p *s3.DeleteBucketInput, _ ...func(*s3.Options)) (*s3.DeleteBucketOutput, error) {
+	delete(m.buckets, aws.ToString(p.Bucket))
+	return &s3.DeleteBucketOutput{}, nil
+}
 
-  BeforeEach(func() {
-    bucketName = tests.GetRandomBucketName()
-    s3Wrapper = wrapper.New(&config.S3Config{Bucket: &bucketName})
-    _, _ = s3Wrapper.CreateBucket(nil)
-  })
+func (m *cliMockS3) HeadBucket(_ context.Context, p *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
+	if _, ok := m.buckets[aws.ToString(p.Bucket)]; !ok {
+		return nil, errors.New("not found")
+	}
+	return &s3.HeadBucketOutput{}, nil
+}
 
-  AfterEach(func() {
-    clearBucket(s3Wrapper.Bucket)
-  })
+func (m *cliMockS3) ListObjectsV2(_ context.Context, p *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	objs, ok := m.buckets[aws.ToString(p.Bucket)]
+	if !ok {
+		return nil, errors.New("no such bucket")
+	}
+	prefix := aws.ToString(p.Prefix)
+	var keys []string
+	for k := range objs {
+		if strings.HasPrefix(k, prefix) {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	var contents []types.Object
+	for _, k := range keys {
+		contents = append(contents, types.Object{
+			Key:          aws.String(k),
+			LastModified: aws.Time(objs[k].lastModified),
+		})
+	}
+	return &s3.ListObjectsV2Output{Contents: contents}, nil
+}
 
-  It("No args", func() {
-    out := runCommand([]string{})
-    Expect(out).To(MatchRegexp(fmt.Sprintf(`^Help for go s3 v%s`, version.Gos3Version)))
-  })
+func (m *cliMockS3) HeadObject(_ context.Context, p *s3.HeadObjectInput, _ ...func(*s3.Options)) (*s3.HeadObjectOutput, error) {
+	if _, ok := m.buckets[aws.ToString(p.Bucket)][aws.ToString(p.Key)]; !ok {
+		return nil, errors.New("not found")
+	}
+	return &s3.HeadObjectOutput{}, nil
+}
 
-  It("Version", func() {
-    out := runCommand([]string{"-v"})
-    Expect(out).To(Equal(fmt.Sprintf("v%s\n", version.Gos3Version)))
-  })
+func (m *cliMockS3) PutObject(_ context.Context, p *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
+	data, err := io.ReadAll(p.Body)
+	if err != nil {
+		return nil, err
+	}
+	m.buckets[aws.ToString(p.Bucket)][aws.ToString(p.Key)] = cliMockObj{
+		body:         data,
+		lastModified: time.Now(),
+	}
+	return &s3.PutObjectOutput{}, nil
+}
 
-  It("List no files", func() {
-    files, err := s3Wrapper.GetFiles(nil)
-    Expect(files).To(BeNil())
-    Expect(err).To(BeNil())
+func (m *cliMockS3) DeleteObjects(_ context.Context, p *s3.DeleteObjectsInput, _ ...func(*s3.Options)) (*s3.DeleteObjectsOutput, error) {
+	objs := m.buckets[aws.ToString(p.Bucket)]
+	var deleted []types.DeletedObject
+	for _, id := range p.Delete.Objects {
+		k := aws.ToString(id.Key)
+		if _, ok := objs[k]; ok {
+			delete(objs, k)
+			deleted = append(deleted, types.DeletedObject{Key: aws.String(k)})
+		}
+	}
+	return &s3.DeleteObjectsOutput{Deleted: deleted}, nil
+}
 
-    out := runCommand([]string{"-l"})
-    Expect(out).To(Equal(fmt.Sprintf("[go-s3] No files found in bucket '%s'\n", s3Wrapper.Bucket)))
-  })
+func runTestCLI(t *testing.T, mock gos3.S3API, args ...string) (string, string, error) {
+	t.Helper()
+	factory := func(_ context.Context, opts *config.Options, _ *slog.Logger) (gos3.S3API, config.Configuration, error) {
+		cfg := config.Resolve(opts)
+		if cfg.Bucket == "" {
+			cfg.Bucket = "test-bucket"
+		}
+		return mock, cfg, nil
+	}
+	root := cmd.NewRootCmd(factory)
+	var stdout, stderr bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stderr)
+	root.SetArgs(args)
+	err := root.ExecuteContext(context.Background())
+	return stdout.String(), stderr.String(), err
+}
 
-  It("List files", func() {
-    files, err := s3Wrapper.GetFiles(nil)
-    Expect(files).To(BeNil())
-    Expect(err).To(BeNil())
+func TestCLIHelpAndVersion(t *testing.T) {
+	mock := newCLIMockS3("test-bucket")
 
-    _, _ = s3Wrapper.UploadFile(sampleFile1, sampleFolder, nil, nil)
-    _, _ = s3Wrapper.UploadFile(sampleFile2, "", nil, nil)
-    out := runCommand([]string{"-l"})
-    Expect(out).To(Equal(fmt.Sprintf(
-      "[go-s3] File list in bucket '%s': 2\n%s/%s\n%s\n",
-      s3Wrapper.Bucket,
-      sampleFolder,
-      baseSampleFile1,
-      baseSampleFile2,
-    )))
-  })
+	stdout, _, err := runTestCLI(t, mock)
+	if err != nil {
+		t.Fatalf("expected nil error for help, got: %v", err)
+	}
+	if !strings.Contains(stdout, "Usage:") {
+		t.Errorf("expected usage output, got: %q", stdout)
+	}
 
-  Describe("Backup files", func() {
-    It("Simple backup one file", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
+	stdout, _, err = runTestCLI(t, mock, "-v")
+	if err != nil {
+		t.Fatalf("unexpected error for -v: %v", err)
+	}
+	want := fmt.Sprintf("v%s\n", version.Version)
+	if stdout != want {
+		t.Errorf("version output = %q, want %q", stdout, want)
+	}
+}
 
-      out := runCommand([]string{"-b", sampleFile1})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
+func TestCLIBackupListDeleteAndDebug(t *testing.T) {
+	mock := newCLIMockS3("test-bucket")
+	tmp := t.TempDir()
+	sample := filepath.Join(tmp, "note.txt")
+	if err := os.WriteFile(sample, []byte("backup data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
-      files, err = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(Equal(baseSampleFile1))
-    })
+	// Backup with --debug enabled.
+	stdout, stderr, err := runTestCLI(t, mock, "--bucket", "test-bucket", "-b", sample, "-f", "docs", "--debug")
+	if err != nil {
+		t.Fatalf("backup failed: %v", err)
+	}
+	if !strings.Contains(stdout, "[go-s3] Backup success in bucket 'test-bucket'") {
+		t.Errorf("unexpected stdout: %q", stdout)
+	}
+	if !strings.Contains(stderr, "level=DEBUG") {
+		t.Errorf("expected debug logs on stderr, got: %q", stderr)
+	}
 
-    It("Simple backup one file to folder", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
+	// List files.
+	stdout, _, err = runTestCLI(t, mock, "--bucket", "test-bucket", "-l")
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if !strings.Contains(stdout, "docs/note.txt") {
+		t.Errorf("expected docs/note.txt in list output, got: %q", stdout)
+	}
 
-      out := runCommand([]string{"-b", sampleFile1, "-f", sampleFolder})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
+	// Make object appear 5 days old and delete with folder=2d.
+	oldObj := mock.buckets["test-bucket"]["docs/note.txt"]
+	oldObj.lastModified = time.Now().AddDate(0, 0, -5)
+	mock.buckets["test-bucket"]["docs/note.txt"] = oldObj
 
-      files, err = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1))
-    })
+	stdout, _, err = runTestCLI(t, mock, "--bucket", "test-bucket", "-d", "docs=2d")
+	if err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+	if !strings.Contains(stdout, "Deleted 1 file(s) in folder 'docs' older than '2d'") {
+		t.Errorf("unexpected delete stdout: %q", stdout)
+	}
 
-    It("Simple backup two files", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-b", sampleFile1, "-b", sampleFile2})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, err = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(2))
-      Expect(files).Should(ContainElement(
-        PointTo(
-          MatchFields(IgnoreExtras, Fields{
-            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
-            "Key":          PointTo(MatchRegexp("%s", baseSampleFile1)),
-          }))))
-      Expect(files).Should(ContainElement(
-        PointTo(
-          MatchFields(IgnoreExtras, Fields{
-            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
-            "Key":          PointTo(MatchRegexp("%s", baseSampleFile2)),
-          }))))
-    })
-
-    It("Simple backup two files to folder", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-b", sampleFile1, "-b", sampleFile2, "-f", sampleFolder})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, err = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(2))
-      Expect(files).Should(ContainElement(
-        PointTo(
-          MatchFields(IgnoreExtras, Fields{
-            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
-            "Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile1)),
-          }))))
-      Expect(files).Should(ContainElement(
-        PointTo(
-          MatchFields(IgnoreExtras, Fields{
-            "LastModified": PointTo(BeTemporally("~", time.Now(), time.Second)),
-            "Key":          PointTo(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2)),
-          }))))
-    })
-
-    It("Simple backup one file with zip", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-b", sampleFile1, "-z"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, err = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp(".*%s", ".zip"))
-    })
-
-    It("Simple backup one file with zip name", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-b", sampleFile1, "-n", "zipname.zip"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, err = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(Equal("zipname.zip"))
-    })
-
-    It("Simple backup two files with zip", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-b", sampleFile1, "-b", sampleFile2, "-z"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, err = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp(".*%s", ".zip"))
-    })
-  })
-
-  Describe("Mysql dump", func() {
-    It("Backup mysql dump", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-m"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] MySql dump backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp("mysqldump-.*%s$", ".sql"))
-    })
-
-    It("Backup mysql dump to folder", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-m", "-f", sampleFolder})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] MySql dump backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp("%s/mysqldump-.*%s$", sampleFolder, ".sql"))
-    })
-
-    It("Backup mysql dump to zip", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-m", "-z"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] MySql dump backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp(".*%s$", ".zip"))
-    })
-
-    It("Backup mysql dump to folder and zip", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      out := runCommand([]string{"-m", "-f", sampleFolder, "-z"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] MySql dump backup success in bucket '%s'\n",
-        s3Wrapper.Bucket,
-      )))
-
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp("%s/.*%s$", sampleFolder, ".zip"))
-    })
-  })
-
-  Describe("Clean older files", func() {
-    It("Clear files simple", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      _, _ = s3Wrapper.UploadFile(sampleFile1, "", nil, nil)
-      time.Sleep(time.Second * 3)
-      _, _ = s3Wrapper.UploadFile(sampleFile2, "", nil, nil)
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(2))
-
-      out := runCommand([]string{"-d", "1s"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Deleted files older than '%s' in bucket '%s'\n",
-        "1s",
-        s3Wrapper.Bucket,
-      )))
-
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(Equal(baseSampleFile2))
-    })
-
-    It("Clear files simple in folder", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      _, _ = s3Wrapper.UploadFile(sampleFile1, sampleFolder, nil, nil)
-      time.Sleep(time.Second * 3)
-      _, _ = s3Wrapper.UploadFile(sampleFile2, sampleFolder, nil, nil)
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(2))
-
-      out := runCommand([]string{"-d", "1s", "-f", sampleFolder})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Deleted files in folder '%s' older than '%s' in bucket '%s'\n",
-        sampleFolder,
-        "1s",
-        s3Wrapper.Bucket,
-      )))
-
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2))
-    })
-
-    It("Clear files complex in folder", func() {
-      files, err := s3Wrapper.GetFiles(nil)
-      Expect(files).To(BeNil())
-      Expect(err).To(BeNil())
-
-      _, _ = s3Wrapper.UploadFile(sampleFile1, sampleFolder, nil, nil)
-      time.Sleep(time.Second * 3)
-      _, _ = s3Wrapper.UploadFile(sampleFile2, sampleFolder, nil, nil)
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).ToNot(BeNil())
-      Expect(err).To(BeNil())
-      Expect(files).To(HaveLen(2))
-
-      out := runCommand([]string{"-d", sampleFolder + "=1s"})
-      Expect(out).To(Equal(fmt.Sprintf(
-        "[go-s3] Deleted files in folder '%s' older than '%s' in bucket '%s'\n",
-        sampleFolder,
-        "1s",
-        s3Wrapper.Bucket,
-      )))
-
-      files, _ = s3Wrapper.GetFiles(nil)
-      Expect(files).To(HaveLen(1))
-      Expect(*files[0].Key).To(MatchRegexp("%s/%s", sampleFolder, baseSampleFile2))
-    })
-  })
-})
+	// List should now report no files.
+	stdout, _, err = runTestCLI(t, mock, "--bucket", "test-bucket", "-l")
+	if err != nil {
+		t.Fatalf("list after delete failed: %v", err)
+	}
+	if !strings.Contains(stdout, "No files found") {
+		t.Errorf("expected empty bucket message, got: %q", stdout)
+	}
+}

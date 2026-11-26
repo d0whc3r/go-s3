@@ -1,15 +1,21 @@
-version: "3.3"
 services:
   minio:
-    image: bitnami/minio:latest
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
     environment:
-      MINIO_ACCESS_KEY: "access-mock-key"
-      MINIO_SECRET_KEY: "secret-mock-key"
-      MINIO_PORT_NUMBER: 9000
+      MINIO_ROOT_USER: "access-mock-key"
+      MINIO_ROOT_PASSWORD: "secret-mock-key"
     ports:
-    - 9000:9000
+      - "9000:9000"
+      - "9090:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   db:
-    image: mysql:5.7
+    image: mysql:8.4
     volumes:
       - ./tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro
     environment:
@@ -18,4 +24,9 @@ services:
       MYSQL_PASSWORD: "password"
       MYSQL_ROOT_PASSWORD: "password"
     ports:
-      - 9001:3306
+      - "9001:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ppassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 15

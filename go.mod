@@ -1,26 +1,35 @@
-module s3
+module github.com/d0whc3r/go-s3
 
-go 1.15
+go 1.27
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.4.1 // indirect
 	github.com/JamesStewy/go-mysqldump v0.2.2
-	github.com/andybalholm/brotli v1.0.1 // indirect
-	github.com/aws/aws-sdk-go v1.38.0
-	github.com/go-sql-driver/mysql v1.5.0
-	github.com/golang/snappy v0.0.3 // indirect
-	github.com/joho/godotenv v1.3.0
-	github.com/klauspost/compress v1.11.12 // indirect
-	github.com/klauspost/pgzip v1.2.5 // indirect
-	github.com/kr/pretty v0.2.0 // indirect
-	github.com/mholt/archiver/v3 v3.5.0
-	github.com/onsi/ginkgo v1.15.2
-	github.com/onsi/gomega v1.10.1
-	github.com/pierrec/lz4/v4 v4.1.3 // indirect
-	github.com/spf13/cobra v1.1.3
-	github.com/tcnksm/ghr v0.13.0 // indirect
-	github.com/ulikunitz/xz v0.5.10 // indirect
-	golang.org/x/sys v0.0.0-20210319071255-635bc2c9138d // indirect
-	golang.org/x/tools v0.1.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.48.1
+	github.com/aws/aws-sdk-go-v2/config v1.33.22
+	github.com/aws/aws-sdk-go-v2/credentials v1.21.4
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.116.1
+	github.com/go-sql-driver/mysql v1.10.2
+	github.com/joho/godotenv v1.5.1
+	github.com/spf13/cobra v1.10.2
+)
+
+require (
+	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.28 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.26 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.14 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.13 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.14.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.39.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.53.1 // indirect
+	github.com/aws/smithy-go v1.28.10 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 )
