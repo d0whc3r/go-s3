@@ -16,6 +16,20 @@ A lightweight command-line utility for backing up files, directories, and databa
 
 ## Installation
 
+### Quick install (Linux, macOS, FreeBSD)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/d0whc3r/go-s3/master/install.sh | sh
+```
+
+The installer detects your OS and architecture, verifies the SHA-256 checksum, and installs `gos3` to `/usr/local/bin`.
+
+To install a specific version or use a custom directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/d0whc3r/go-s3/master/install.sh | VERSION=v2.0.0 INSTALL_DIR="$HOME/.local/bin" sh
+```
+
 ### Download prebuilt binary
 
 Download the latest binary for your OS and architecture from the [GitHub Releases](https://github.com/d0whc3r/go-s3/releases) page, make it executable, and place it on your `PATH`:
