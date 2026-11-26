@@ -46,7 +46,7 @@ services:
       retries: 10
 
   mongodb:
-    image: mongo:8
+    image: mongo:9
     environment:
       MONGO_INITDB_ROOT_USERNAME: "root"
       MONGO_INITDB_ROOT_PASSWORD: "password"
