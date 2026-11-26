@@ -49,6 +49,7 @@ type CLIOptions struct {
 	Postgres  bool
 	SQLite    string
 	MongoDB   bool
+	Update    bool
 	Debug     bool
 	Version   bool
 }
@@ -119,6 +120,7 @@ func NewRootCmd(factory ClientFactory) *cobra.Command {
 	flags.BoolVar(&opts.Postgres, "postgres", false, "Dump and upload a PostgreSQL database (shorthand for --db postgres)")
 	flags.StringVar(&opts.SQLite, "sqlite", "", "Snapshot and upload a SQLite database file (shorthand for --db sqlite with path)")
 	flags.BoolVar(&opts.MongoDB, "mongodb", false, "Dump and upload a MongoDB database (shorthand for --db mongodb)")
+	flags.BoolVar(&opts.Update, "update", false, "Self-update gos3 to the latest GitHub Release")
 	flags.BoolVar(&opts.Debug, "debug", false, "Enable verbose debug logging to stderr (or $DEBUG=true)")
 	flags.BoolVarP(&opts.Version, "version", "v", false, "Print gos3 version and exit")
 

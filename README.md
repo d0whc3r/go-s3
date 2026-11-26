@@ -51,6 +51,16 @@ docker run --rm d0whc3r/gos3 --help
 go install github.com/d0whc3r/go-s3@latest
 ```
 
+### Updating
+
+To update an existing installation to the latest release (with SHA-256 verification):
+
+```bash
+gos3 --update
+```
+
+*(If installed in `/usr/local/bin`, run `sudo gos3 --update`.)*
+
 ## Configuration
 
 `gos3` can be configured via environment variables, command-line flags, or both. Command-line flags take precedence over environment variables. See [example.env](./example.env) for a ready-to-use template.
@@ -141,6 +151,7 @@ gos3 [flags]
 | `--postgres` | | Shorthand for `--db postgres` |
 | `--sqlite <path>` | | Shorthand for `--db sqlite` with database file path |
 | `--mongodb` | | Shorthand for `--db mongodb` |
+| `--update` | | Self-update `gos3` to the latest GitHub Release |
 | `--debug` | | Print detailed debug logs to stderr |
 | `--version` | `-v` | Print the installed version and exit |
 | `--help` | `-h` | Show help message |

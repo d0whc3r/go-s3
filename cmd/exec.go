@@ -25,6 +25,7 @@ import (
 	"github.com/d0whc3r/go-s3/internal/config"
 	"github.com/d0whc3r/go-s3/internal/dbdump"
 	"github.com/d0whc3r/go-s3/internal/gos3"
+	"github.com/d0whc3r/go-s3/internal/updater"
 	"github.com/d0whc3r/go-s3/internal/version"
 )
 
@@ -65,6 +66,7 @@ func requestedEngines(o CLIOptions) ([]dbdump.Engine, error) {
 
 func hasAction(o CLIOptions) bool {
 	return o.Version ||
+		o.Update ||
 		o.List ||
 		len(o.Backup) > 0 ||
 		len(o.Delete) > 0 ||
@@ -85,6 +87,25 @@ func runCLI(cmd *cobra.Command, o CLIOptions, factory ClientFactory) error {
 
 	if o.Version {
 		fmt.Fprintf(out, "v%s\n", version.Version)
+		return nil
+	}
+
+	if o.Update {
+		var logger *slog.Logger
+		if o.Debug {
+			logger = slog.New(slog.NewTextHandler(errOut, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		} else {
+			logger = slog.New(slog.DiscardHandler)
+		}
+		res, err := updater.New(logger).Update(cmd.Context(), version.Version, "")
+		if err != nil {
+			return err
+		}
+		if !res.Updated {
+			fmt.Fprintf(out, "%s Already up to date (v%s)\n", tag, res.LatestVersion)
+			return nil
+		}
+		fmt.Fprintf(out, "%s Updated gos3 from v%s to v%s (%s)\n", tag, res.CurrentVersion, res.LatestVersion, res.TargetPath)
 		return nil
 	}
 
