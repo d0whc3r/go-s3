@@ -47,7 +47,7 @@ jobs:
             -p 9000:9000 \
             -e MINIO_ROOT_USER=access-mock-key \
             -e MINIO_ROOT_PASSWORD=secret-mock-key \
-            quay.io/minio/minio:latest server /data
+            cgr.dev/chainguard/minio:latest server /tmp/data
           docker run -d --name mysql \
             -p 9001:3306 \
             -e MYSQL_DATABASE=db \
