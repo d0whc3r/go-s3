@@ -55,7 +55,7 @@ jobs:
             -e MYSQL_PASSWORD=password \
             -e MYSQL_ROOT_PASSWORD=password \
             -v "${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro" \
-            mysql:8.4
+            mysql:26.10
           docker run -d --name postgres \
             -p 9002:5432 \
             -e POSTGRES_DB=app \

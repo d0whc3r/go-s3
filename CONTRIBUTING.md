@@ -19,7 +19,7 @@ Thank you for considering contributing to **go-s3**! This guide covers everythin
 │   └── version/        # Build-time version metadata
 ├── tests/              # Integration tests (build tag: integration) and sample fixtures
 ├── Dockerfile          # Multi-stage container build (distroless non-root runtime)
-├── docker-compose.yml  # Local MinIO and MySQL 8.4 stack for integration testing
+├── docker-compose.yml  # Local MinIO, MySQL, PostgreSQL, and MongoDB stack for integration testing
 └── Makefile            # Common build, test, and lint targets
 ```
 
