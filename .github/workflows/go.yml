@@ -15,20 +15,6 @@ jobs:
     name: Build, Vet & Test
     runs-on: ubuntu-latest
 
-    services:
-      minio:
-        image: minio/minio:latest
-        env:
-          MINIO_ROOT_USER: "access-mock-key"
-          MINIO_ROOT_PASSWORD: "secret-mock-key"
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "mc ready local"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -57,6 +43,11 @@ jobs:
 
       - name: Integration tests
         run: |
+          docker run -d --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=access-mock-key \
+            -e MINIO_ROOT_PASSWORD=secret-mock-key \
+            quay.io/minio/minio:latest server /data
           docker run -d --name mysql \
             -p 9001:3306 \
             -e MYSQL_DATABASE=db \
@@ -65,6 +56,13 @@ jobs:
             -e MYSQL_ROOT_PASSWORD=password \
             -v "${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro" \
             mysql:8.4
+          trap 'docker rm -f minio mysql >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
           for i in $(seq 1 30); do
             if docker exec mysql mysqladmin ping -h localhost -ppassword --silent; then
               break
@@ -72,7 +70,6 @@ jobs:
             sleep 2
           done
           go test -race -tags=integration -v ./tests/...
-          docker rm -f mysql
         env:
           ENDPOINT: "http://localhost:9000"
           ACCESS_KEY: "access-mock-key"
