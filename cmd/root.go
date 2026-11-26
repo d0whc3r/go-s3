@@ -33,20 +33,24 @@ type ClientFactory func(ctx context.Context, opts *config.Options, logger *slog.
 
 // CLIOptions holds the parsed command-line flags.
 type CLIOptions struct {
-	Endpoint string
-	Bucket   string
-	Region   string
-	List     bool
-	Backup   []string
-	Zip      bool
-	ZipName  string
-	Replace  bool
-	Create   bool
-	Folder   string
-	Delete   []string
-	MySQL    bool
-	Debug    bool
-	Version  bool
+	Endpoint  string
+	Bucket    string
+	Region    string
+	List      bool
+	Backup    []string
+	Zip       bool
+	ZipName   string
+	Replace   bool
+	Create    bool
+	Folder    string
+	Delete    []string
+	Databases []string
+	MySQL     bool
+	Postgres  bool
+	SQLite    string
+	MongoDB   bool
+	Debug     bool
+	Version   bool
 }
 
 func defaultClientFactory(ctx context.Context, opts *config.Options, logger *slog.Logger) (gos3.S3API, config.Configuration, error) {
@@ -64,7 +68,7 @@ func NewRootCmd(factory ClientFactory) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           "gos3",
 		Short:         fmt.Sprintf("S3-compatible backup and retention CLI (v%s)", version.Version),
-		Long:          fmt.Sprintf("gos3 v%s — S3-compatible CLI utility for file backups, MySQL dumps, and retention cleanup.", version.Version),
+		Long:          fmt.Sprintf("gos3 v%s — S3-compatible CLI utility for file backups, database dumps (MySQL/MariaDB, PostgreSQL, SQLite, MongoDB), and retention cleanup.", version.Version),
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		Example: `  1. List files in "sample" bucket:
@@ -73,23 +77,26 @@ func NewRootCmd(factory ClientFactory) *cobra.Command {
   2. Backup multiple files to "backupFolder":
      $ gos3 -e https://s3.eu-central-1.amazonaws.com --bucket sample -b src/index.ts -b images/logo.png -f backupFolder
 
-  3. Backup files using wildcard to "backup":
-     $ gos3 -e https://s3.eu-central-1.amazonaws.com --bucket sample -b "src/*" -b "images/*" -f backup
-
-  4. Backup and zip into "zipped" (creating bucket if needed):
+  3. Backup files using wildcard and zip into "zipped" (creating bucket if needed):
      $ gos3 -e https://s3.eu-central-1.amazonaws.com --bucket sample -b "src/*" -z -f zipped -c
 
-  5. Backup and zip with custom name, replacing existing archive:
-     $ gos3 -e https://s3.eu-central-1.amazonaws.com --bucket sample -b "src/*" -n allfiles.zip -f zipped -c -r
-
-  6. Delete files older than 2 days in "uploads" and 1 month in "monthly":
+  4. Delete files older than 2 days in "uploads" and 1 month in "monthly":
      $ gos3 -e https://s3.eu-central-1.amazonaws.com --bucket sample -d uploads=2d -d monthly=1M
 
-  7. Delete files in "uploads" older than 30 minutes with debug output:
-     $ gos3 -e https://s3.eu-central-1.amazonaws.com --bucket sample -f uploads -d 30m --debug
+  5. Dump MySQL/MariaDB database, zip it, and upload to "mysql-backup":
+     $ gos3 --bucket sample -f mysql-backup --mysql -z
 
-  8. Dump MySQL database, zip it, and upload to "mysql-backup":
-     $ gos3 -e https://s3.eu-central-1.amazonaws.com --bucket sample -f mysql-backup -m -z`,
+  6. Dump PostgreSQL database, zip it, and upload to "pg-backup":
+     $ gos3 --bucket sample -f pg-backup --postgres -z
+
+  7. Snapshot a live SQLite database and upload to "sqlite-backup":
+     $ gos3 --bucket sample -f sqlite-backup --sqlite /var/lib/app/data.db -z
+
+  8. Dump MongoDB database as Extended JSON and upload to "mongo-backup":
+     $ gos3 --bucket sample -f mongo-backup --mongodb -z
+
+  9. Dump multiple engines in one run with debug output:
+     $ gos3 --bucket sample -f db-backups --db postgres --db mongodb -z --debug`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCLI(cmd, opts, factory)
 		},
@@ -107,7 +114,11 @@ func NewRootCmd(factory ClientFactory) *cobra.Command {
 	flags.BoolVarP(&opts.Create, "create", "c", false, "Create destination bucket if it does not exist")
 	flags.StringVarP(&opts.Folder, "folder", "f", "", "Destination folder prefix in the bucket")
 	flags.StringArrayVarP(&opts.Delete, "delete", "d", nil, "Delete files older than duration (e.g. 2d, 1M, or folder=7d; repeatable)")
-	flags.BoolVarP(&opts.MySQL, "mysql", "m", false, "Create and upload a MySQL dump ($MYSQL_USER, $MYSQL_PASSWORD, $MYSQL_DATABASE, $MYSQL_HOST, $MYSQL_PORT)")
+	flags.StringArrayVar(&opts.Databases, "db", nil, "Database engine to dump and upload: mysql, mariadb, postgres, sqlite, mongodb (repeatable)")
+	flags.BoolVarP(&opts.MySQL, "mysql", "m", false, "Dump and upload a MySQL/MariaDB database (shorthand for --db mysql)")
+	flags.BoolVar(&opts.Postgres, "postgres", false, "Dump and upload a PostgreSQL database (shorthand for --db postgres)")
+	flags.StringVar(&opts.SQLite, "sqlite", "", "Snapshot and upload a SQLite database file (shorthand for --db sqlite with path)")
+	flags.BoolVar(&opts.MongoDB, "mongodb", false, "Dump and upload a MongoDB database (shorthand for --db mongodb)")
 	flags.BoolVar(&opts.Debug, "debug", false, "Enable verbose debug logging to stderr (or $DEBUG=true)")
 	flags.BoolVarP(&opts.Version, "version", "v", false, "Print gos3 version and exit")
 

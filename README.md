@@ -1,11 +1,15 @@
 # gos3
 
-A lightweight command-line utility for backing up files, directories, and MySQL databases to any S3-compatible storage (AWS S3, MinIO, Cloudflare R2, DigitalOcean Spaces, Backblaze B2, etc.), with built-in zip compression and automated retention cleanup.
+A lightweight command-line utility for backing up files, directories, and databases (**MySQL/MariaDB**, **PostgreSQL**, **SQLite**, and **MongoDB**) to any S3-compatible storage (AWS S3, MinIO, Cloudflare R2, DigitalOcean Spaces, Backblaze B2, etc.), with built-in zip compression and automated retention cleanup.
 
 ## Features
 
 - **File & folder backups** with wildcard/glob support and optional zip compression.
-- **MySQL database backups** dumped directly and uploaded (raw `.sql` or `.zip`).
+- **Multi-database backups (zero external binaries required)**:
+  - **MySQL / MariaDB** — SQL dump
+  - **PostgreSQL** — pure-Go schema + data SQL dump
+  - **SQLite** — consistent live snapshot via `VACUUM INTO`
+  - **MongoDB** — Extended JSON dump of all collections
 - **Retention cleanup** to delete objects older than a given age (`30m`, `2d`, `1w`, `1M`, `1y`, or compound durations like `1M15d`).
 - **S3-compatible** — works with AWS S3, MinIO, Cloudflare R2, DigitalOcean Spaces, and other S3 APIs.
 - **Single static binary & minimal Docker image** — easy to run in cron jobs, servers, or CI pipelines.
@@ -53,15 +57,49 @@ go install github.com/d0whc3r/go-s3@latest
 
 \* If `ACCESS_KEY` and `SECRET_KEY` are omitted, `gos3` falls back to the standard AWS credential chain (shared credentials file, IAM role, etc.).
 
-### MySQL Environment Variables (for `-m` / `--mysql`)
+### Database Environment Variables
+
+#### MySQL / MariaDB (`--mysql` / `-m` or `--db mysql` / `--db mariadb`)
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `MYSQL_HOST` | No | `localhost` | MySQL server hostname |
-| `MYSQL_PORT` | No | `3306` | MySQL server port |
-| `MYSQL_USER` | Yes | — | MySQL username |
-| `MYSQL_PASSWORD` | Yes | — | MySQL password |
+| `MYSQL_HOST` | No | `localhost` | MySQL / MariaDB hostname |
+| `MYSQL_PORT` | No | `3306` | MySQL / MariaDB port |
+| `MYSQL_USER` | Yes | — | Database username |
+| `MYSQL_PASSWORD` | Yes | — | Database password |
 | `MYSQL_DATABASE` | Yes | — | Database name to dump |
+
+#### PostgreSQL (`--postgres` or `--db postgres`)
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `POSTGRES_URL` | No\* | — | Full connection URI (e.g. `postgres://user:pass@host:5432/db?sslmode=require`) |
+| `POSTGRES_HOST` | No | `localhost` | PostgreSQL hostname |
+| `POSTGRES_PORT` | No | `5432` | PostgreSQL port |
+| `POSTGRES_USER` | Yes\* | — | Database username |
+| `POSTGRES_PASSWORD` | No | — | Database password |
+| `POSTGRES_DATABASE` | Yes\* | — | Database name to dump |
+| `POSTGRES_SSLMODE` | No | `prefer` | SSL mode (`disable`, `prefer`, `require`, `verify-full`) |
+| `POSTGRES_SCHEMA` | No | `public` | Schema to dump |
+
+\* Provide either `POSTGRES_URL` or `POSTGRES_USER` + `POSTGRES_DATABASE`.
+
+#### SQLite (`--sqlite <path>` or `--db sqlite`)
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `SQLITE_PATH` | Yes (or `--sqlite`) | — | Path to the local `.db` / `.sqlite` file |
+
+#### MongoDB (`--mongodb` or `--db mongodb`)
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `MONGO_URI` | No | — | Full MongoDB URI (e.g. `mongodb://user:pass@host:27017` or `mongodb+srv://...`) |
+| `MONGO_HOST` | No | `localhost` | MongoDB hostname (used when `MONGO_URI` is empty) |
+| `MONGO_PORT` | No | `27017` | MongoDB port |
+| `MONGO_USER` | No | — | MongoDB username |
+| `MONGO_PASSWORD` | No | — | MongoDB password |
+| `MONGO_DATABASE` | Yes | — | Database name to dump |
 
 ## Usage
 
@@ -84,7 +122,11 @@ gos3 [flags]
 | `--replace` | `-r` | Overwrite existing objects in S3 |
 | `--create` | `-c` | Create the destination bucket if it does not exist |
 | `--delete <spec>` | `-d` | Delete files older than a duration (e.g. `7d`, `1M`, or `folder=7d`; repeatable) |
-| `--mysql` | `-m` | Dump the configured MySQL database and upload it |
+| `--db <engine>` | | Database engine to dump: `mysql`, `mariadb`, `postgres`, `sqlite`, `mongodb` (repeatable) |
+| `--mysql` | `-m` | Shorthand for `--db mysql` |
+| `--postgres` | | Shorthand for `--db postgres` |
+| `--sqlite <path>` | | Shorthand for `--db sqlite` with database file path |
+| `--mongodb` | | Shorthand for `--db mongodb` |
 | `--debug` | | Print detailed debug logs to stderr |
 | `--version` | `-v` | Print the installed version and exit |
 | `--help` | `-h` | Show help message |
@@ -145,13 +187,39 @@ Create a zip with a fixed filename, overwriting the previous archive:
 gos3 --bucket my-backups -b ./data -n latest.zip -f archives -c -r
 ```
 
-### Back up a MySQL database
+### Back up databases
 
-Dump a MySQL database, compress it as a `.zip`, and upload to `mysql-backups/`:
+**MySQL / MariaDB:**
 
 ```bash
 export MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=backup MYSQL_PASSWORD=secret MYSQL_DATABASE=app
-gos3 --bucket my-backups -f mysql-backups -m -z
+gos3 --bucket my-backups -f mysql-backups --mysql -z
+```
+
+**PostgreSQL:**
+
+```bash
+export POSTGRES_URL="postgres://backup:secret@localhost:5432/app?sslmode=require"
+gos3 --bucket my-backups -f pg-backups --postgres -z
+```
+
+**SQLite (live consistent snapshot):**
+
+```bash
+gos3 --bucket my-backups -f sqlite-backups --sqlite /var/lib/app/data.db -z
+```
+
+**MongoDB (Extended JSON):**
+
+```bash
+export MONGO_URI="mongodb://backup:secret@localhost:27017" MONGO_DATABASE=app
+gos3 --bucket my-backups -f mongo-backups --mongodb -z
+```
+
+**Multiple databases in one run:**
+
+```bash
+gos3 --bucket my-backups -f db-backups --db postgres --db mongodb -z
 ```
 
 ### Clean up old backups (retention policy)

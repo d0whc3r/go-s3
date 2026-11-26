@@ -17,6 +17,7 @@ package cmd_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -31,6 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	_ "modernc.org/sqlite"
 
 	"github.com/d0whc3r/go-s3/cmd"
 	"github.com/d0whc3r/go-s3/internal/config"
@@ -219,5 +221,38 @@ func TestCLIBackupListDeleteAndDebug(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "No files found") {
 		t.Errorf("expected empty bucket message, got: %q", stdout)
+	}
+}
+
+func TestCLISQLiteAndUnsupportedDB(t *testing.T) {
+	mock := newCLIMockS3("test-bucket")
+
+	// Unsupported engine should return a clear error.
+	if _, _, err := runTestCLI(t, mock, "--bucket", "test-bucket", "--db", "oracle"); err == nil {
+		t.Fatal("expected error for unsupported database engine")
+	}
+
+	// End-to-end SQLite backup via --sqlite flag.
+	tmp := t.TempDir()
+	dbPath := filepath.Join(tmp, "local.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT); INSERT INTO notes (body) VALUES ('hello');`); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	db.Close()
+
+	stdout, _, err := runTestCLI(t, mock, "--bucket", "test-bucket", "--sqlite", dbPath, "-f", "db-backups", "-z")
+	if err != nil {
+		t.Fatalf("sqlite backup failed: %v", err)
+	}
+	if !strings.Contains(stdout, "[go-s3] SQLite dump backup success in bucket 'test-bucket'") {
+		t.Errorf("unexpected stdout: %q", stdout)
+	}
+	if len(mock.buckets["test-bucket"]) != 1 {
+		t.Fatalf("expected 1 uploaded archive in bucket, got %d", len(mock.buckets["test-bucket"]))
 	}
 }

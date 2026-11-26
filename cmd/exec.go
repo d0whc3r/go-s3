@@ -23,14 +23,56 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/d0whc3r/go-s3/internal/config"
+	"github.com/d0whc3r/go-s3/internal/dbdump"
 	"github.com/d0whc3r/go-s3/internal/gos3"
 	"github.com/d0whc3r/go-s3/internal/version"
 )
 
 const tag = "[go-s3]"
 
+func requestedEngines(o CLIOptions) ([]dbdump.Engine, error) {
+	seen := make(map[dbdump.Engine]struct{})
+	var engines []dbdump.Engine
+
+	add := func(e dbdump.Engine) {
+		if _, ok := seen[e]; !ok {
+			seen[e] = struct{}{}
+			engines = append(engines, e)
+		}
+	}
+
+	if o.MySQL {
+		add(dbdump.EngineMySQL)
+	}
+	if o.Postgres {
+		add(dbdump.EnginePostgres)
+	}
+	if o.SQLite != "" {
+		add(dbdump.EngineSQLite)
+	}
+	if o.MongoDB {
+		add(dbdump.EngineMongoDB)
+	}
+	for _, raw := range o.Databases {
+		engine, err := dbdump.ParseEngine(raw)
+		if err != nil {
+			return nil, err
+		}
+		add(engine)
+	}
+	return engines, nil
+}
+
 func hasAction(o CLIOptions) bool {
-	return o.Version || o.List || len(o.Backup) > 0 || len(o.Delete) > 0 || o.MySQL
+	return o.Version ||
+		o.List ||
+		len(o.Backup) > 0 ||
+		len(o.Delete) > 0 ||
+		len(o.Databases) > 0 ||
+		o.MySQL ||
+		o.Postgres ||
+		o.SQLite != "" ||
+		o.MongoDB
 }
 
 func runCLI(cmd *cobra.Command, o CLIOptions, factory ClientFactory) error {
@@ -46,11 +88,17 @@ func runCLI(cmd *cobra.Command, o CLIOptions, factory ClientFactory) error {
 		return nil
 	}
 
+	engines, err := requestedEngines(o)
+	if err != nil {
+		return err
+	}
+
 	cfgOverrides := &config.Options{
-		Bucket:   &o.Bucket,
-		Endpoint: &o.Endpoint,
-		Region:   &o.Region,
-		Debug:    &o.Debug,
+		Bucket:     &o.Bucket,
+		Endpoint:   &o.Endpoint,
+		Region:     &o.Region,
+		Debug:      &o.Debug,
+		SQLitePath: &o.SQLite,
 	}
 
 	debugEnabled := config.Resolve(cfgOverrides).Debug
@@ -89,11 +137,15 @@ func runCLI(cmd *cobra.Command, o CLIOptions, factory ClientFactory) error {
 		fmt.Fprintf(out, "%s Backup success in bucket '%s'\n", tag, cfg.Bucket)
 	}
 
-	if o.MySQL {
-		if err := mgr.UploadMySQL(ctx, cfg.Bucket, o.Folder, cfg.MySQL, uploadOpts); err != nil {
+	for _, engine := range engines {
+		dumper, err := dbdump.NewDumper(engine, cfg.Databases, logger)
+		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "%s MySQL dump backup success in bucket '%s'\n", tag, cfg.Bucket)
+		if err := mgr.UploadDatabase(ctx, cfg.Bucket, o.Folder, dumper, uploadOpts); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "%s %s dump backup success in bucket '%s'\n", tag, dumper.Name(), cfg.Bucket)
 	}
 
 	if o.List {

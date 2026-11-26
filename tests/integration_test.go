@@ -26,6 +26,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/d0whc3r/go-s3/internal/config"
+	"github.com/d0whc3r/go-s3/internal/dbdump"
 	"github.com/d0whc3r/go-s3/internal/gos3"
 )
 
@@ -38,7 +39,7 @@ func randomBucketName(t *testing.T) string {
 	return "s3-test-" + hex.EncodeToString(b)
 }
 
-func TestIntegrationS3AndMySQL(t *testing.T) {
+func TestIntegrationS3AndDatabases(t *testing.T) {
 	_ = godotenv.Load("../test.env")
 
 	ctx := context.Background()
@@ -77,9 +78,33 @@ func TestIntegrationS3AndMySQL(t *testing.T) {
 		t.Fatalf("expected 2 deleted files, got %d", len(deleted))
 	}
 
-	if cfg.MySQL.User != "" && cfg.MySQL.Database != "" {
-		if err := mgr.UploadMySQL(ctx, bucket, "mysql", cfg.MySQL, gos3.UploadOptions{Compress: true}); err != nil {
+	if cfg.Databases.MySQL.User != "" && cfg.Databases.MySQL.Database != "" {
+		dumper, err := dbdump.NewDumper(dbdump.EngineMySQL, cfg.Databases, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := mgr.UploadDatabase(ctx, bucket, "mysql", dumper, gos3.UploadOptions{Compress: true}); err != nil {
 			t.Fatalf("upload mysql dump: %v", err)
+		}
+	}
+
+	if cfg.Databases.Postgres.URL != "" || (cfg.Databases.Postgres.User != "" && cfg.Databases.Postgres.Database != "") {
+		dumper, err := dbdump.NewDumper(dbdump.EnginePostgres, cfg.Databases, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := mgr.UploadDatabase(ctx, bucket, "postgres", dumper, gos3.UploadOptions{Compress: true}); err != nil {
+			t.Fatalf("upload postgres dump: %v", err)
+		}
+	}
+
+	if cfg.Databases.MongoDB.Database != "" {
+		dumper, err := dbdump.NewDumper(dbdump.EngineMongoDB, cfg.Databases, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := mgr.UploadDatabase(ctx, bucket, "mongodb", dumper, gos3.UploadOptions{Compress: true}); err != nil {
+			t.Fatalf("upload mongodb dump: %v", err)
 		}
 	}
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/d0whc3r/go-s3/internal/config"
+	"github.com/d0whc3r/go-s3/internal/dbdump"
 	"github.com/d0whc3r/go-s3/internal/gos3"
 )
 
@@ -314,10 +315,13 @@ func TestManagerRemoveBucketForceAndPagination(t *testing.T) {
 	}
 }
 
-func TestManagerUploadMySQLMissingEnv(t *testing.T) {
+func TestManagerUploadDatabaseValidation(t *testing.T) {
 	mgr := gos3.New(newMockS3(), nil)
-	err := mgr.UploadMySQL(context.Background(), "b", "mysql", config.MySQLConfig{}, gos3.UploadOptions{})
-	if err == nil {
+	dumper, err := dbdump.NewDumper(dbdump.EngineMySQL, config.DatabaseConfig{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mgr.UploadDatabase(context.Background(), "b", "mysql", dumper, gos3.UploadOptions{}); err == nil {
 		t.Fatal("expected error when MySQL credentials are missing")
 	}
 }

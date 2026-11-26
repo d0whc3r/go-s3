@@ -47,8 +47,8 @@ func TestLoadAndResolve(t *testing.T) {
 	if cfg.MaxRetries != 5 || cfg.ForcePathStyle || !cfg.SSLEnabled || !cfg.Debug {
 		t.Fatalf("unexpected flags/numeric config: %+v", cfg)
 	}
-	if cfg.MySQL.Host != "db.local" || cfg.MySQL.Port != 3307 || cfg.MySQL.User != "root" || cfg.MySQL.Password != "secret" || cfg.MySQL.Database != "app" {
-		t.Fatalf("unexpected mysql config: %+v", cfg.MySQL)
+	if cfg.Databases.MySQL.Host != "db.local" || cfg.Databases.MySQL.Port != 3307 || cfg.Databases.MySQL.User != "root" || cfg.Databases.MySQL.Password != "secret" || cfg.Databases.MySQL.Database != "app" {
+		t.Fatalf("unexpected mysql config: %+v", cfg.Databases.MySQL)
 	}
 
 	otherEndpoint := "https://override.example.com"

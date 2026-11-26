@@ -56,7 +56,13 @@ jobs:
             -e MYSQL_ROOT_PASSWORD=password \
             -v "${{ github.workspace }}/tests/sql/sample.sql:/docker-entrypoint-initdb.d/sample.sql:ro" \
             mysql:8.4
-          trap 'docker rm -f minio mysql >/dev/null 2>&1 || true' EXIT
+          docker run -d --name postgres \
+            -p 9002:5432 \
+            -e POSTGRES_DB=app \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=password \
+            postgres:17-alpine
+          trap 'docker rm -f minio mysql postgres >/dev/null 2>&1 || true' EXIT
           for i in $(seq 1 30); do
             if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
               break
@@ -69,6 +75,13 @@ jobs:
             fi
             sleep 2
           done
+          for i in $(seq 1 30); do
+            if docker exec postgres pg_isready -U postgres -d app >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec postgres psql -U postgres -d app -c "CREATE TABLE items (id SERIAL PRIMARY KEY, name TEXT NOT NULL); INSERT INTO items (name) VALUES ('one'), ('two');"
           go test -race -tags=integration -v ./tests/...
         env:
           ENDPOINT: "http://localhost:9000"
@@ -83,6 +96,12 @@ jobs:
           MYSQL_USER: "root"
           MYSQL_PASSWORD: "password"
           MYSQL_DATABASE: "classicmodels"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_PORT: "9002"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "password"
+          POSTGRES_DATABASE: "app"
+          POSTGRES_SSLMODE: "disable"
 
       - name: SonarCloud Scan
         if: env.SONAR_TOKEN != ''

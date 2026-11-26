@@ -43,11 +43,46 @@ type Configuration struct {
 	ForcePathStyle bool
 	SSLEnabled     bool
 	Debug          bool
-	MySQL          MySQLConfig
+	Databases      DatabaseConfig
 }
 
-// MySQLConfig holds database connection parameters for MySQL dump backups.
+// DatabaseConfig groups connection settings for all supported database engines.
+type DatabaseConfig struct {
+	MySQL    MySQLConfig
+	Postgres PostgresConfig
+	SQLite   SQLiteConfig
+	MongoDB  MongoDBConfig
+}
+
+// MySQLConfig holds connection parameters for MySQL / MariaDB backups.
 type MySQLConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	Database string
+}
+
+// PostgresConfig holds connection parameters for PostgreSQL backups.
+type PostgresConfig struct {
+	URL      string
+	Host     string
+	Port     int
+	User     string
+	Password string
+	Database string
+	SSLMode  string
+	Schema   string
+}
+
+// SQLiteConfig holds parameters for SQLite backups.
+type SQLiteConfig struct {
+	Path string
+}
+
+// MongoDBConfig holds connection parameters for MongoDB backups.
+type MongoDBConfig struct {
+	URI      string
 	Host     string
 	Port     int
 	User     string
@@ -65,6 +100,7 @@ type Options struct {
 	ForcePathStyle *bool
 	SSLEnabled     *bool
 	Debug          *bool
+	SQLitePath     *string
 }
 
 // Load reads the base configuration from environment variables with sensible defaults.
@@ -79,12 +115,35 @@ func Load() Configuration {
 		ForcePathStyle: getEnvBool("FORCE_PATH_STYLE", true),
 		SSLEnabled:     getEnvBool("SSL_ENABLED", false),
 		Debug:          getEnvBool("DEBUG", false),
-		MySQL: MySQLConfig{
-			Host:     getEnv("MYSQL_HOST", "localhost"),
-			Port:     getEnvInt("MYSQL_PORT", 3306),
-			User:     getEnv("MYSQL_USER", ""),
-			Password: getEnv("MYSQL_PASSWORD", ""),
-			Database: getEnv("MYSQL_DATABASE", ""),
+		Databases: DatabaseConfig{
+			MySQL: MySQLConfig{
+				Host:     getEnv("MYSQL_HOST", "localhost"),
+				Port:     getEnvInt("MYSQL_PORT", 3306),
+				User:     getEnv("MYSQL_USER", ""),
+				Password: getEnv("MYSQL_PASSWORD", ""),
+				Database: getEnv("MYSQL_DATABASE", ""),
+			},
+			Postgres: PostgresConfig{
+				URL:      getEnv("POSTGRES_URL", ""),
+				Host:     getEnv("POSTGRES_HOST", "localhost"),
+				Port:     getEnvInt("POSTGRES_PORT", 5432),
+				User:     getEnv("POSTGRES_USER", ""),
+				Password: getEnv("POSTGRES_PASSWORD", ""),
+				Database: getEnv("POSTGRES_DATABASE", ""),
+				SSLMode:  getEnv("POSTGRES_SSLMODE", "prefer"),
+				Schema:   getEnv("POSTGRES_SCHEMA", "public"),
+			},
+			SQLite: SQLiteConfig{
+				Path: getEnv("SQLITE_PATH", ""),
+			},
+			MongoDB: MongoDBConfig{
+				URI:      getEnv("MONGO_URI", ""),
+				Host:     getEnv("MONGO_HOST", "localhost"),
+				Port:     getEnvInt("MONGO_PORT", 27017),
+				User:     getEnv("MONGO_USER", ""),
+				Password: getEnv("MONGO_PASSWORD", ""),
+				Database: getEnv("MONGO_DATABASE", ""),
+			},
 		},
 	}
 }
@@ -115,6 +174,9 @@ func Resolve(opts *Options) Configuration {
 	}
 	if opts.Debug != nil && *opts.Debug {
 		cfg.Debug = true
+	}
+	if opts.SQLitePath != nil && *opts.SQLitePath != "" {
+		cfg.Databases.SQLite.Path = *opts.SQLitePath
 	}
 	return cfg
 }
